@@ -124,9 +124,7 @@
      * @type Boolean
      * @default
      */
-    allowTouchScrolling: true,
-    allowSingleTouchScrolling: false,
-    allowMultiTouchScrolling: true,
+    allowTouchScrolling: false,
 
     /**
      * Indicates whether this canvas will use image smoothing, this is on by default in browsers
