@@ -203,7 +203,17 @@
      * @param {Event} e Event object fired on mousemove
      */
     _onMouseMove: function (e) {
-      !this.allowTouchScrolling && e.preventDefault && e.preventDefault();
+    	if(this.allowTouchScrolling) {
+    		if(e.touches && e.touches.length == 1 && !this.allowSingleTouchScrolling) {
+    			e.preventDefault && e.preventDefault();
+    		}
+    		if(e.touches && e.touches.length > 1 && !this.allowMultiTouchScrollling) {
+    			e.preventDefault && e.preventDefault();
+    		}
+    	}
+    	else {
+    		e.preventDefault && e.preventDefault();
+    	}
       this.__onMouseMove(e);
     },
 

@@ -5753,7 +5753,9 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
      * @type Boolean
      * @default
      */
-    allowTouchScrolling: false,
+    allowTouchScrolling: true,
+    allowSingleTouchScrolling: false,
+    allowMultiTouchScrolling: true,
 
     /**
      * Indicates whether this canvas will use image smoothing, this is on by default in browsers
@@ -9270,7 +9272,17 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
      * @param {Event} e Event object fired on mousemove
      */
     _onMouseMove: function (e) {
-      !this.allowTouchScrolling && e.preventDefault && e.preventDefault();
+    	if(this.allowTouchScrolling) {
+    		if(e.touches && e.touches.length == 1 && !this.allowSingleTouchScrolling) {
+    			e.preventDefault && e.preventDefault();
+    		}
+    		if(e.touches && e.touches.length > 1 && !this.allowMultiTouchScrollling) {
+    			e.preventDefault && e.preventDefault();
+    		}
+    	}
+    	else {
+    		e.preventDefault && e.preventDefault();
+    	}
       this.__onMouseMove(e);
     },
 
