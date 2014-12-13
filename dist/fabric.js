@@ -9273,10 +9273,10 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
      */
     _onMouseMove: function (e) {
     	if(this.allowTouchScrolling) {
-    		if(typeof e.touches !== 'undefined' && e.touches.length == 1 && !this.allowSingleTouchScrolling) {
+    		if(e.touches && e.touches.length == 1 && !this.allowSingleTouchScrolling) {
     			e.preventDefault && e.preventDefault();
     		}
-    		if(typeof e.touches !== 'undefined' && e.touches.length > 1 && !this.allowMultiTouchScrollling) {
+    		if(e.touches && e.touches.length > 1 && !this.allowMultiTouchScrollling) {
     			e.preventDefault && e.preventDefault();
     		}
     	}
