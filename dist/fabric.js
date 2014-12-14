@@ -1,4 +1,4 @@
-/* build: `node build.js modules=ltext,interaction,freedrawing minifier=uglifyjs` */
+/* build: `node build.js modules=itext,interaction,freedrawing,serialization minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2014, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
 var fabric = fabric || { version: "1.4.13" };
@@ -54,6 +54,497 @@ fabric.SHARED_ATTRIBUTES = [
  */
 fabric.DPI = 96;
 fabric.reNum = '(?:[-+]?(?:\\d+|\\d*\\.\\d+)(?:e[-+]?\\d+)?)';
+
+
+/*
+    json2.js
+    2014-02-04
+
+    Public Domain.
+
+    NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+
+    See http://www.JSON.org/js.html
+
+
+    This code should be minified before deployment.
+    See http://javascript.crockford.com/jsmin.html
+
+    USE YOUR OWN COPY. IT IS EXTREMELY UNWISE TO LOAD CODE FROM SERVERS YOU DO
+    NOT CONTROL.
+
+
+    This file creates a global JSON object containing two methods: stringify
+    and parse.
+
+        JSON.stringify(value, replacer, space)
+            value       any JavaScript value, usually an object or array.
+
+            replacer    an optional parameter that determines how object
+                        values are stringified for objects. It can be a
+                        function or an array of strings.
+
+            space       an optional parameter that specifies the indentation
+                        of nested structures. If it is omitted, the text will
+                        be packed without extra whitespace. If it is a number,
+                        it will specify the number of spaces to indent at each
+                        level. If it is a string (such as '\t' or '&nbsp;'),
+                        it contains the characters used to indent at each level.
+
+            This method produces a JSON text from a JavaScript value.
+
+            When an object value is found, if the object contains a toJSON
+            method, its toJSON method will be called and the result will be
+            stringified. A toJSON method does not serialize: it returns the
+            value represented by the name/value pair that should be serialized,
+            or undefined if nothing should be serialized. The toJSON method
+            will be passed the key associated with the value, and this will be
+            bound to the value
+
+            For example, this would serialize Dates as ISO strings.
+
+                Date.prototype.toJSON = function (key) {
+                    function f(n) {
+                        // Format integers to have at least two digits.
+                        return n < 10 ? '0' + n : n;
+                    }
+
+                    return this.getUTCFullYear()   + '-' +
+                         f(this.getUTCMonth() + 1) + '-' +
+                         f(this.getUTCDate())      + 'T' +
+                         f(this.getUTCHours())     + ':' +
+                         f(this.getUTCMinutes())   + ':' +
+                         f(this.getUTCSeconds())   + 'Z';
+                };
+
+            You can provide an optional replacer method. It will be passed the
+            key and value of each member, with this bound to the containing
+            object. The value that is returned from your method will be
+            serialized. If your method returns undefined, then the member will
+            be excluded from the serialization.
+
+            If the replacer parameter is an array of strings, then it will be
+            used to select the members to be serialized. It filters the results
+            such that only members with keys listed in the replacer array are
+            stringified.
+
+            Values that do not have JSON representations, such as undefined or
+            functions, will not be serialized. Such values in objects will be
+            dropped; in arrays they will be replaced with null. You can use
+            a replacer function to replace those with JSON values.
+            JSON.stringify(undefined) returns undefined.
+
+            The optional space parameter produces a stringification of the
+            value that is filled with line breaks and indentation to make it
+            easier to read.
+
+            If the space parameter is a non-empty string, then that string will
+            be used for indentation. If the space parameter is a number, then
+            the indentation will be that many spaces.
+
+            Example:
+
+            text = JSON.stringify(['e', {pluribus: 'unum'}]);
+            // text is '["e",{"pluribus":"unum"}]'
+
+
+            text = JSON.stringify(['e', {pluribus: 'unum'}], null, '\t');
+            // text is '[\n\t"e",\n\t{\n\t\t"pluribus": "unum"\n\t}\n]'
+
+            text = JSON.stringify([new Date()], function (key, value) {
+                return this[key] instanceof Date ?
+                    'Date(' + this[key] + ')' : value;
+            });
+            // text is '["Date(---current time---)"]'
+
+
+        JSON.parse(text, reviver)
+            This method parses a JSON text to produce an object or array.
+            It can throw a SyntaxError exception.
+
+            The optional reviver parameter is a function that can filter and
+            transform the results. It receives each of the keys and values,
+            and its return value is used instead of the original value.
+            If it returns what it received, then the structure is not modified.
+            If it returns undefined then the member is deleted.
+
+            Example:
+
+            // Parse the text. Values that look like ISO date strings will
+            // be converted to Date objects.
+
+            myData = JSON.parse(text, function (key, value) {
+                var a;
+                if (typeof value === 'string') {
+                    a =
+/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/.exec(value);
+                    if (a) {
+                        return new Date(Date.UTC(+a[1], +a[2] - 1, +a[3], +a[4],
+                            +a[5], +a[6]));
+                    }
+                }
+                return value;
+            });
+
+            myData = JSON.parse('["Date(09/09/2001)"]', function (key, value) {
+                var d;
+                if (typeof value === 'string' &&
+                        value.slice(0, 5) === 'Date(' &&
+                        value.slice(-1) === ')') {
+                    d = new Date(value.slice(5, -1));
+                    if (d) {
+                        return d;
+                    }
+                }
+                return value;
+            });
+
+
+    This is a reference implementation. You are free to copy, modify, or
+    redistribute.
+*/
+
+/*jslint evil: true, regexp: true */
+
+/*members "", "\b", "\t", "\n", "\f", "\r", "\"", JSON, "\\", apply,
+    call, charCodeAt, getUTCDate, getUTCFullYear, getUTCHours,
+    getUTCMinutes, getUTCMonth, getUTCSeconds, hasOwnProperty, join,
+    lastIndex, length, parse, prototype, push, replace, slice, stringify,
+    test, toJSON, toString, valueOf
+*/
+
+
+// Create a JSON object only if one does not already exist. We create the
+// methods in a closure to avoid creating global variables.
+
+if (typeof JSON !== 'object') {
+    JSON = {};
+}
+
+(function () {
+    'use strict';
+
+    function f(n) {
+        // Format integers to have at least two digits.
+        return n < 10 ? '0' + n : n;
+    }
+
+    if (typeof Date.prototype.toJSON !== 'function') {
+
+        Date.prototype.toJSON = function () {
+
+            return isFinite(this.valueOf())
+                ? this.getUTCFullYear()     + '-' +
+                    f(this.getUTCMonth() + 1) + '-' +
+                    f(this.getUTCDate())      + 'T' +
+                    f(this.getUTCHours())     + ':' +
+                    f(this.getUTCMinutes())   + ':' +
+                    f(this.getUTCSeconds())   + 'Z'
+                : null;
+        };
+
+        String.prototype.toJSON      =
+            Number.prototype.toJSON  =
+            Boolean.prototype.toJSON = function () {
+                return this.valueOf();
+            };
+    }
+
+    var cx,
+        escapable,
+        gap,
+        indent,
+        meta,
+        rep;
+
+
+    function quote(string) {
+
+// If the string contains no control characters, no quote characters, and no
+// backslash characters, then we can safely slap some quotes around it.
+// Otherwise we must also replace the offending characters with safe escape
+// sequences.
+
+        escapable.lastIndex = 0;
+        return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+            var c = meta[a];
+            return typeof c === 'string'
+                ? c
+                : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+        }) + '"' : '"' + string + '"';
+    }
+
+
+    function str(key, holder) {
+
+// Produce a string from holder[key].
+
+        var i,          // The loop counter.
+            k,          // The member key.
+            v,          // The member value.
+            length,
+            mind = gap,
+            partial,
+            value = holder[key];
+
+// If the value has a toJSON method, call it to obtain a replacement value.
+
+        if (value && typeof value === 'object' &&
+                typeof value.toJSON === 'function') {
+            value = value.toJSON(key);
+        }
+
+// If we were called with a replacer function, then call the replacer to
+// obtain a replacement value.
+
+        if (typeof rep === 'function') {
+            value = rep.call(holder, key, value);
+        }
+
+// What happens next depends on the value's type.
+
+        switch (typeof value) {
+        case 'string':
+            return quote(value);
+
+        case 'number':
+
+// JSON numbers must be finite. Encode non-finite numbers as null.
+
+            return isFinite(value) ? String(value) : 'null';
+
+        case 'boolean':
+        case 'null':
+
+// If the value is a boolean or null, convert it to a string. Note:
+// typeof null does not produce 'null'. The case is included here in
+// the remote chance that this gets fixed someday.
+
+            return String(value);
+
+// If the type is 'object', we might be dealing with an object or an array or
+// null.
+
+        case 'object':
+
+// Due to a specification blunder in ECMAScript, typeof null is 'object',
+// so watch out for that case.
+
+            if (!value) {
+                return 'null';
+            }
+
+// Make an array to hold the partial results of stringifying this object value.
+
+            gap += indent;
+            partial = [];
+
+// Is the value an array?
+
+            if (Object.prototype.toString.apply(value) === '[object Array]') {
+
+// The value is an array. Stringify every element. Use null as a placeholder
+// for non-JSON values.
+
+                length = value.length;
+                for (i = 0; i < length; i += 1) {
+                    partial[i] = str(i, value) || 'null';
+                }
+
+// Join all of the elements together, separated with commas, and wrap them in
+// brackets.
+
+                v = partial.length === 0
+                    ? '[]'
+                    : gap
+                    ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']'
+                    : '[' + partial.join(',') + ']';
+                gap = mind;
+                return v;
+            }
+
+// If the replacer is an array, use it to select the members to be stringified.
+
+            if (rep && typeof rep === 'object') {
+                length = rep.length;
+                for (i = 0; i < length; i += 1) {
+                    if (typeof rep[i] === 'string') {
+                        k = rep[i];
+                        v = str(k, value);
+                        if (v) {
+                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                        }
+                    }
+                }
+            } else {
+
+// Otherwise, iterate through all of the keys in the object.
+
+                for (k in value) {
+                    if (Object.prototype.hasOwnProperty.call(value, k)) {
+                        v = str(k, value);
+                        if (v) {
+                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                        }
+                    }
+                }
+            }
+
+// Join all of the member texts together, separated with commas,
+// and wrap them in braces.
+
+            v = partial.length === 0
+                ? '{}'
+                : gap
+                ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}'
+                : '{' + partial.join(',') + '}';
+            gap = mind;
+            return v;
+        }
+    }
+
+// If the JSON object does not yet have a stringify method, give it one.
+
+    if (typeof JSON.stringify !== 'function') {
+        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        meta = {    // table of character substitutions
+            '\b': '\\b',
+            '\t': '\\t',
+            '\n': '\\n',
+            '\f': '\\f',
+            '\r': '\\r',
+            '"' : '\\"',
+            '\\': '\\\\'
+        };
+        JSON.stringify = function (value, replacer, space) {
+
+// The stringify method takes a value and an optional replacer, and an optional
+// space parameter, and returns a JSON text. The replacer can be a function
+// that can replace values, or an array of strings that will select the keys.
+// A default replacer method can be provided. Use of the space parameter can
+// produce text that is more easily readable.
+
+            var i;
+            gap = '';
+            indent = '';
+
+// If the space parameter is a number, make an indent string containing that
+// many spaces.
+
+            if (typeof space === 'number') {
+                for (i = 0; i < space; i += 1) {
+                    indent += ' ';
+                }
+
+// If the space parameter is a string, it will be used as the indent string.
+
+            } else if (typeof space === 'string') {
+                indent = space;
+            }
+
+// If there is a replacer, it must be a function or an array.
+// Otherwise, throw an error.
+
+            rep = replacer;
+            if (replacer && typeof replacer !== 'function' &&
+                    (typeof replacer !== 'object' ||
+                    typeof replacer.length !== 'number')) {
+                throw new Error('JSON.stringify');
+            }
+
+// Make a fake root object containing our value under the key of ''.
+// Return the result of stringifying the value.
+
+            return str('', {'': value});
+        };
+    }
+
+
+// If the JSON object does not yet have a parse method, give it one.
+
+    if (typeof JSON.parse !== 'function') {
+        cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        JSON.parse = function (text, reviver) {
+
+// The parse method takes a text and an optional reviver function, and returns
+// a JavaScript value if the text is a valid JSON text.
+
+            var j;
+
+            function walk(holder, key) {
+
+// The walk method is used to recursively walk the resulting structure so
+// that modifications can be made.
+
+                var k, v, value = holder[key];
+                if (value && typeof value === 'object') {
+                    for (k in value) {
+                        if (Object.prototype.hasOwnProperty.call(value, k)) {
+                            v = walk(value, k);
+                            if (v !== undefined) {
+                                value[k] = v;
+                            } else {
+                                delete value[k];
+                            }
+                        }
+                    }
+                }
+                return reviver.call(holder, key, value);
+            }
+
+
+// Parsing happens in four stages. In the first stage, we replace certain
+// Unicode characters with escape sequences. JavaScript handles many characters
+// incorrectly, either silently deleting them, or treating them as line endings.
+
+            text = String(text);
+            cx.lastIndex = 0;
+            if (cx.test(text)) {
+                text = text.replace(cx, function (a) {
+                    return '\\u' +
+                        ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                });
+            }
+
+// In the second stage, we run the text against regular expressions that look
+// for non-JSON patterns. We are especially concerned with '()' and 'new'
+// because they can cause invocation, and '=' because it can cause mutation.
+// But just to be safe, we want to reject all unexpected forms.
+
+// We split the second stage into 4 regexp operations in order to work around
+// crippling inefficiencies in IE's and Safari's regexp engines. First we
+// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
+// replace all simple value tokens with ']' characters. Third, we delete all
+// open brackets that follow a colon or comma or that begin the text. Finally,
+// we look to see that the remaining characters are only whitespace or ']' or
+// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
+
+            if (/^[\],:{}\s]*$/
+                    .test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@')
+                        .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']')
+                        .replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+
+// In the third stage we use the eval function to compile the text into a
+// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
+// in JavaScript: it can begin a block or an object literal. We wrap the text
+// in parens to eliminate the ambiguity.
+
+                j = eval('(' + text + ')');
+
+// In the optional fourth stage, we recursively walk the new structure, passing
+// each name/value pair to a reviver function for possible transformation.
+
+                return typeof reviver === 'function'
+                    ? walk({'': j}, '')
+                    : j;
+            }
+
+// If the text is not JSON parseable, then a SyntaxError is thrown.
+
+            throw new SyntaxError('JSON.parse');
+        };
+    }
+}());
 
 
 (function() {
@@ -7904,6 +8395,223 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
 });
 
 
+fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.StaticCanvas.prototype */ {
+
+  /**
+   * Populates canvas with data from the specified dataless JSON.
+   * JSON format must conform to the one of {@link fabric.Canvas#toDatalessJSON}
+   * @deprecated since 1.2.2
+   * @param {String|Object} json JSON string or object
+   * @param {Function} callback Callback, invoked when json is parsed
+   *                            and corresponding objects (e.g: {@link fabric.Image})
+   *                            are initialized
+   * @param {Function} [reviver] Method for further parsing of JSON elements, called after each fabric object created.
+   * @return {fabric.Canvas} instance
+   * @chainable
+   * @tutorial {@link http://fabricjs.com/fabric-intro-part-3/#deserialization}
+   */
+  loadFromDatalessJSON: function (json, callback, reviver) {
+    return this.loadFromJSON(json, callback, reviver);
+  },
+
+  /**
+   * Populates canvas with data from the specified JSON.
+   * JSON format must conform to the one of {@link fabric.Canvas#toJSON}
+   * @param {String|Object} json JSON string or object
+   * @param {Function} callback Callback, invoked when json is parsed
+   *                            and corresponding objects (e.g: {@link fabric.Image})
+   *                            are initialized
+   * @param {Function} [reviver] Method for further parsing of JSON elements, called after each fabric object created.
+   * @return {fabric.Canvas} instance
+   * @chainable
+   * @tutorial {@link http://fabricjs.com/fabric-intro-part-3/#deserialization}
+   * @see {@link http://jsfiddle.net/fabricjs/fmgXt/|jsFiddle demo}
+   * @example <caption>loadFromJSON</caption>
+   * canvas.loadFromJSON(json, canvas.renderAll.bind(canvas));
+   * @example <caption>loadFromJSON with reviver</caption>
+   * canvas.loadFromJSON(json, canvas.renderAll.bind(canvas), function(o, object) {
+   *   // `o` = json object
+   *   // `object` = fabric.Object instance
+   *   // ... do some stuff ...
+   * });
+   */
+  loadFromJSON: function (json, callback, reviver) {
+    if (!json) {
+      return;
+    }
+
+    // serialize if it wasn't already
+    var serialized = (typeof json === 'string')
+      ? JSON.parse(json)
+      : json;
+
+    this.clear();
+
+    var _this = this;
+    this._enlivenObjects(serialized.objects, function () {
+      _this._setBgOverlay(serialized, callback);
+    }, reviver);
+
+    return this;
+  },
+
+  /**
+   * @private
+   * @param {Object} serialized Object with background and overlay information
+   * @param {Function} callback Invoked after all background and overlay images/patterns loaded
+   */
+  _setBgOverlay: function(serialized, callback) {
+    var _this = this,
+        loaded = {
+          backgroundColor: false,
+          overlayColor: false,
+          backgroundImage: false,
+          overlayImage: false
+        };
+
+    if (!serialized.backgroundImage && !serialized.overlayImage && !serialized.background && !serialized.overlay) {
+      callback && callback();
+      return;
+    }
+
+    var cbIfLoaded = function () {
+      if (loaded.backgroundImage && loaded.overlayImage && loaded.backgroundColor && loaded.overlayColor) {
+        _this.renderAll();
+        callback && callback();
+      }
+    };
+
+    this.__setBgOverlay('backgroundImage', serialized.backgroundImage, loaded, cbIfLoaded);
+    this.__setBgOverlay('overlayImage', serialized.overlayImage, loaded, cbIfLoaded);
+    this.__setBgOverlay('backgroundColor', serialized.background, loaded, cbIfLoaded);
+    this.__setBgOverlay('overlayColor', serialized.overlay, loaded, cbIfLoaded);
+
+    cbIfLoaded();
+  },
+
+  /**
+   * @private
+   * @param {String} property Property to set (backgroundImage, overlayImage, backgroundColor, overlayColor)
+   * @param {(Object|String)} value Value to set
+   * @param {Object} loaded Set loaded property to true if property is set
+   * @param {Object} callback Callback function to invoke after property is set
+   */
+  __setBgOverlay: function(property, value, loaded, callback) {
+    var _this = this;
+
+    if (!value) {
+      loaded[property] = true;
+      return;
+    }
+
+    if (property === 'backgroundImage' || property === 'overlayImage') {
+      fabric.Image.fromObject(value, function(img) {
+        _this[property] = img;
+        loaded[property] = true;
+        callback && callback();
+      });
+    }
+    else {
+      this['set' + fabric.util.string.capitalize(property, true)](value, function() {
+        loaded[property] = true;
+        callback && callback();
+      });
+    }
+  },
+
+  /**
+   * @private
+   * @param {Array} objects
+   * @param {Function} callback
+   * @param {Function} [reviver]
+   */
+  _enlivenObjects: function (objects, callback, reviver) {
+    var _this = this;
+
+    if (!objects || objects.length === 0) {
+      callback && callback();
+      return;
+    }
+
+    var renderOnAddRemove = this.renderOnAddRemove;
+    this.renderOnAddRemove = false;
+
+    fabric.util.enlivenObjects(objects, function(enlivenedObjects) {
+      enlivenedObjects.forEach(function(obj, index) {
+        _this.insertAt(obj, index, true);
+      });
+
+      _this.renderOnAddRemove = renderOnAddRemove;
+      callback && callback();
+    }, null, reviver);
+  },
+
+  /**
+   * @private
+   * @param {String} format
+   * @param {Function} callback
+   */
+  _toDataURL: function (format, callback) {
+    this.clone(function (clone) {
+      callback(clone.toDataURL(format));
+    });
+  },
+
+  /**
+   * @private
+   * @param {String} format
+   * @param {Number} multiplier
+   * @param {Function} callback
+   */
+  _toDataURLWithMultiplier: function (format, multiplier, callback) {
+    this.clone(function (clone) {
+      callback(clone.toDataURLWithMultiplier(format, multiplier));
+    });
+  },
+
+  /**
+   * Clones canvas instance
+   * @param {Object} [callback] Receives cloned instance as a first argument
+   * @param {Array} [properties] Array of properties to include in the cloned canvas and children
+   */
+  clone: function (callback, properties) {
+    var data = JSON.stringify(this.toJSON(properties));
+    this.cloneWithoutData(function(clone) {
+      clone.loadFromJSON(data, function() {
+        callback && callback(clone);
+      });
+    });
+  },
+
+  /**
+   * Clones canvas instance without cloning existing data.
+   * This essentially copies canvas dimensions, clipping properties, etc.
+   * but leaves data empty (so that you can populate it with your own)
+   * @param {Object} [callback] Receives cloned instance as a first argument
+   */
+  cloneWithoutData: function(callback) {
+    var el = fabric.document.createElement('canvas');
+
+    el.width = this.getWidth();
+    el.height = this.getHeight();
+
+    var clone = new fabric.Canvas(el);
+    clone.clipTo = this.clipTo;
+    if (this.backgroundImage) {
+      clone.setBackgroundImage(this.backgroundImage.src, function() {
+        clone.renderAll();
+        callback && callback(clone);
+      });
+      clone.backgroundImageOpacity = this.backgroundImageOpacity;
+      clone.backgroundImageStretch = this.backgroundImageStretch;
+    }
+    else {
+      callback && callback(clone);
+    }
+  }
+});
+
+
 (function(global) {
 
   'use strict';
@@ -14574,4 +15282,2990 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
   fabric.Image.pngCompression = 1;
 
 })(typeof exports !== 'undefined' ? exports : this);
+
+
+(function() {
+
+  var clone = fabric.util.object.clone;
+
+   /**
+    * IText class (introduced in <b>v1.4</b>) Events are also fired with "text:"
+    * prefix when observing canvas.
+    * @class fabric.IText
+    * @extends fabric.Text
+    * @mixes fabric.Observable
+    *
+    * @fires changed
+    * @fires selection:changed
+    * @fires editing:entered
+    * @fires editing:exited
+    *
+    * @return {fabric.IText} thisArg
+    * @see {@link fabric.IText#initialize} for constructor definition
+    *
+    * <p>Supported key combinations:</p>
+    * <pre>
+    *   Move cursor:                    left, right, up, down
+    *   Select character:               shift + left, shift + right
+    *   Select text vertically:         shift + up, shift + down
+    *   Move cursor by word:            alt + left, alt + right
+    *   Select words:                   shift + alt + left, shift + alt + right
+    *   Move cursor to line start/end:  cmd + left, cmd + right
+    *   Select till start/end of line:  cmd + shift + left, cmd + shift + right
+    *   Jump to start/end of text:      cmd + up, cmd + down
+    *   Select till start/end of text:  cmd + shift + up, cmd + shift + down
+    *   Delete character:               backspace
+    *   Delete word:                    alt + backspace
+    *   Delete line:                    cmd + backspace
+    *   Forward delete:                 delete
+    *   Copy text:                      ctrl/cmd + c
+    *   Paste text:                     ctrl/cmd + v
+    *   Cut text:                       ctrl/cmd + x
+    *   Select entire text:             ctrl/cmd + a
+    * </pre>
+    *
+    * <p>Supported mouse/touch combination</p>
+    * <pre>
+    *   Position cursor:                click/touch
+    *   Create selection:               click/touch & drag
+    *   Create selection:               click & shift + click
+    *   Select word:                    double click
+    *   Select line:                    triple click
+    * </pre>
+    */
+  fabric.IText = fabric.util.createClass(fabric.Text, fabric.Observable, /** @lends fabric.IText.prototype */ {
+
+    /**
+     * Type of an object
+     * @type String
+     * @default
+     */
+    type: 'i-text',
+
+    /**
+     * Index where text selection starts (or where cursor is when there is no selection)
+     * @type Nubmer
+     * @default
+     */
+    selectionStart: 0,
+
+    /**
+     * Index where text selection ends
+     * @type Nubmer
+     * @default
+     */
+    selectionEnd: 0,
+
+    /**
+     * Color of text selection
+     * @type String
+     * @default
+     */
+    selectionColor: 'rgba(17,119,255,0.3)',
+
+    /**
+     * Indicates whether text is in editing mode
+     * @type Boolean
+     * @default
+     */
+    isEditing: false,
+
+    /**
+     * Indicates whether a text can be edited
+     * @type Boolean
+     * @default
+     */
+    editable: true,
+
+    /**
+     * Border color of text object while it's in editing mode
+     * @type String
+     * @default
+     */
+    editingBorderColor: 'rgba(102,153,255,0.25)',
+
+    /**
+     * Width of cursor (in px)
+     * @type Number
+     * @default
+     */
+    cursorWidth: 2,
+
+    /**
+     * Color of default cursor (when not overwritten by character style)
+     * @type String
+     * @default
+     */
+    cursorColor: '#333',
+
+    /**
+     * Delay between cursor blink (in ms)
+     * @type Number
+     * @default
+     */
+    cursorDelay: 1000,
+
+    /**
+     * Duration of cursor fadein (in ms)
+     * @type Number
+     * @default
+     */
+    cursorDuration: 600,
+
+    /**
+     * Object containing character styles
+     * (where top-level properties corresponds to line number and 2nd-level properties -- to char number in a line)
+     * @type Object
+     * @default
+     */
+    styles: null,
+
+    /**
+     * Indicates whether internal text char widths can be cached
+     * @type Boolean
+     * @default
+     */
+    caching: true,
+
+    /**
+     * @private
+     * @type Boolean
+     * @default
+     */
+    _skipFillStrokeCheck: true,
+
+    /**
+     * @private
+     */
+    _reSpace: /\s|\n/,
+
+    /**
+     * @private
+     */
+    _fontSizeFraction: 4,
+
+    /**
+     * @private
+     */
+    _currentCursorOpacity: 0,
+
+    /**
+     * @private
+     */
+    _selectionDirection: null,
+
+    /**
+     * @private
+     */
+    _abortCursorAnimation: false,
+
+    /**
+     * @private
+     */
+    _charWidthsCache: { },
+
+    /**
+     * Constructor
+     * @param {String} text Text string
+     * @param {Object} [options] Options object
+     * @return {fabric.IText} thisArg
+     */
+    initialize: function(text, options) {
+      this.styles = options ? (options.styles || { }) : { };
+      this.callSuper('initialize', text, options);
+      this.initBehavior();
+
+      fabric.IText.instances.push(this);
+
+      // caching
+      this.__lineWidths = { };
+      this.__lineHeights = { };
+      this.__lineOffsets = { };
+    },
+
+    /**
+     * Returns true if object has no styling
+     */
+    isEmptyStyles: function() {
+      if (!this.styles) {
+        return true;
+      }
+      var obj = this.styles;
+
+      for (var p1 in obj) {
+        for (var p2 in obj[p1]) {
+          /*jshint unused:false */
+          for (var p3 in obj[p1][p2]) {
+            return false;
+          }
+        }
+      }
+      return true;
+    },
+
+    /**
+     * Sets selection start (left boundary of a selection)
+     * @param {Number} index Index to set selection start to
+     */
+    setSelectionStart: function(index) {
+      if (this.selectionStart !== index) {
+        this.fire('selection:changed');
+        this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+      }
+      this.selectionStart = index;
+      this.hiddenTextarea && (this.hiddenTextarea.selectionStart = index);
+    },
+
+    /**
+     * Sets selection end (right boundary of a selection)
+     * @param {Number} index Index to set selection end to
+     */
+    setSelectionEnd: function(index) {
+      if (this.selectionEnd !== index) {
+        this.fire('selection:changed');
+        this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+      }
+      this.selectionEnd = index;
+      this.hiddenTextarea && (this.hiddenTextarea.selectionEnd = index);
+    },
+
+    /**
+     * Gets style of a current selection/cursor (at the start position)
+     * @param {Number} [startIndex] Start index to get styles at
+     * @param {Number} [endIndex] End index to get styles at
+     * @return {Object} styles Style object at a specified (or current) index
+     */
+    getSelectionStyles: function(startIndex, endIndex) {
+
+      if (arguments.length === 2) {
+        var styles = [ ];
+        for (var i = startIndex; i < endIndex; i++) {
+          styles.push(this.getSelectionStyles(i));
+        }
+        return styles;
+      }
+
+      var loc = this.get2DCursorLocation(startIndex);
+      if (this.styles[loc.lineIndex]) {
+        return this.styles[loc.lineIndex][loc.charIndex] || { };
+      }
+
+      return { };
+    },
+
+    /**
+     * Sets style of a current selection
+     * @param {Object} [styles] Styles object
+     * @return {fabric.IText} thisArg
+     * @chainable
+     */
+    setSelectionStyles: function(styles) {
+      if (this.selectionStart === this.selectionEnd) {
+        this._extendStyles(this.selectionStart, styles);
+      }
+      else {
+        for (var i = this.selectionStart; i < this.selectionEnd; i++) {
+          this._extendStyles(i, styles);
+        }
+      }
+      return this;
+    },
+
+    /**
+     * @private
+     */
+    _extendStyles: function(index, styles) {
+      var loc = this.get2DCursorLocation(index);
+
+      if (!this.styles[loc.lineIndex]) {
+        this.styles[loc.lineIndex] = { };
+      }
+      if (!this.styles[loc.lineIndex][loc.charIndex]) {
+        this.styles[loc.lineIndex][loc.charIndex] = { };
+      }
+
+      fabric.util.object.extend(this.styles[loc.lineIndex][loc.charIndex], styles);
+    },
+
+    /**
+    * @private
+    * @param {CanvasRenderingContext2D} ctx Context to render on
+    */
+    _render: function(ctx) {
+      this.callSuper('_render', ctx);
+      this.ctx = ctx;
+      this.isEditing && this.renderCursorOrSelection();
+    },
+
+    /**
+     * Renders cursor or selection (depending on what exists)
+     */
+    renderCursorOrSelection: function() {
+      if (!this.active) {
+        return;
+      }
+
+      var chars = this.text.split(''),
+          boundaries;
+
+      if (this.selectionStart === this.selectionEnd) {
+        boundaries = this._getCursorBoundaries(chars, 'cursor');
+        this.renderCursor(boundaries);
+      }
+      else {
+        boundaries = this._getCursorBoundaries(chars, 'selection');
+        this.renderSelection(chars, boundaries);
+      }
+    },
+
+    /**
+     * Returns 2d representation (lineIndex and charIndex) of cursor (or selection start)
+     * @param {Number} [selectionStart] Optional index. When not given, current selectionStart is used.
+     */
+    get2DCursorLocation: function(selectionStart) {
+      if (typeof selectionStart === 'undefined') {
+        selectionStart = this.selectionStart;
+      }
+      var textBeforeCursor = this.text.slice(0, selectionStart),
+          linesBeforeCursor = textBeforeCursor.split(this._reNewline);
+
+      return {
+        lineIndex: linesBeforeCursor.length - 1,
+        charIndex: linesBeforeCursor[linesBeforeCursor.length - 1].length
+      };
+    },
+
+    /**
+     * Returns complete style of char at the current cursor
+     * @param {Number} lineIndex Line index
+     * @param {Number} charIndex Char index
+    * @return {Object} Character style
+     */
+    getCurrentCharStyle: function(lineIndex, charIndex) {
+      var style = this.styles[lineIndex] && this.styles[lineIndex][charIndex === 0 ? 0 : (charIndex - 1)];
+
+      return {
+        fontSize: style && style.fontSize || this.fontSize,
+        fill: style && style.fill || this.fill,
+        textBackgroundColor: style && style.textBackgroundColor || this.textBackgroundColor,
+        textDecoration: style && style.textDecoration || this.textDecoration,
+        fontFamily: style && style.fontFamily || this.fontFamily,
+        fontWeight: style && style.fontWeight || this.fontWeight,
+        fontStyle: style && style.fontStyle || this.fontStyle,
+        stroke: style && style.stroke || this.stroke,
+        strokeWidth: style && style.strokeWidth || this.strokeWidth
+      };
+    },
+
+    /**
+     * Returns fontSize of char at the current cursor
+     * @param {Number} lineIndex Line index
+     * @param {Number} charIndex Char index
+     * @return {Number} Character font size
+     */
+    getCurrentCharFontSize: function(lineIndex, charIndex) {
+      return (
+        this.styles[lineIndex] &&
+        this.styles[lineIndex][charIndex === 0 ? 0 : (charIndex - 1)] &&
+        this.styles[lineIndex][charIndex === 0 ? 0 : (charIndex - 1)].fontSize) || this.fontSize;
+    },
+
+    /**
+     * Returns color (fill) of char at the current cursor
+     * @param {Number} lineIndex Line index
+     * @param {Number} charIndex Char index
+     * @return {String} Character color (fill)
+     */
+    getCurrentCharColor: function(lineIndex, charIndex) {
+      return (
+        this.styles[lineIndex] &&
+        this.styles[lineIndex][charIndex === 0 ? 0 : (charIndex - 1)] &&
+        this.styles[lineIndex][charIndex === 0 ? 0 : (charIndex - 1)].fill) || this.cursorColor;
+    },
+
+    /**
+     * Returns cursor boundaries (left, top, leftOffset, topOffset)
+     * @private
+     * @param {Array} chars Array of characters
+     * @param {String} typeOfBoundaries
+     */
+    _getCursorBoundaries: function(chars, typeOfBoundaries) {
+
+      var cursorLocation = this.get2DCursorLocation(),
+
+          textLines = this.text.split(this._reNewline),
+
+          // left/top are left/top of entire text box
+          // leftOffset/topOffset are offset from that left/top point of a text box
+
+          left = Math.round(this._getLeftOffset()),
+          top = this._getTopOffset(),
+
+          offsets = this._getCursorBoundariesOffsets(
+                      chars, typeOfBoundaries, cursorLocation, textLines);
+
+      return {
+        left: left,
+        top: top,
+        leftOffset: offsets.left + offsets.lineLeft,
+        topOffset: offsets.top
+      };
+    },
+
+    /**
+     * @private
+     */
+    _getCursorBoundariesOffsets: function(chars, typeOfBoundaries, cursorLocation, textLines) {
+
+      var lineLeftOffset = 0,
+
+          lineIndex = 0,
+          charIndex = 0,
+
+          leftOffset = 0,
+          topOffset = typeOfBoundaries === 'cursor'
+            // selection starts at the very top of the line,
+            // whereas cursor starts at the padding created by line height
+            ? (this._getHeightOfLine(this.ctx, 0) -
+              this.getCurrentCharFontSize(cursorLocation.lineIndex, cursorLocation.charIndex))
+            : 0;
+
+      for (var i = 0; i < this.selectionStart; i++) {
+        if (chars[i] === '\n') {
+          leftOffset = 0;
+          var index = lineIndex + (typeOfBoundaries === 'cursor' ? 1 : 0);
+          topOffset += this._getCachedLineHeight(index);
+
+          lineIndex++;
+          charIndex = 0;
+        }
+        else {
+          leftOffset += this._getWidthOfChar(this.ctx, chars[i], lineIndex, charIndex);
+          charIndex++;
+        }
+
+        lineLeftOffset = this._getCachedLineOffset(lineIndex, textLines);
+      }
+
+      this._clearCache();
+
+      return {
+        top: topOffset,
+        left: leftOffset,
+        lineLeft: lineLeftOffset
+      };
+    },
+
+    /**
+     * @private
+     */
+    _clearCache: function() {
+      this.__lineWidths = { };
+      this.__lineHeights = { };
+      this.__lineOffsets = { };
+    },
+
+    /**
+     * @private
+     */
+    _getCachedLineHeight: function(index) {
+      return this.__lineHeights[index] ||
+        (this.__lineHeights[index] = this._getHeightOfLine(this.ctx, index));
+    },
+
+    /**
+     * @private
+     */
+    _getCachedLineWidth: function(lineIndex, textLines) {
+      return this.__lineWidths[lineIndex] ||
+        (this.__lineWidths[lineIndex] = this._getWidthOfLine(this.ctx, lineIndex, textLines));
+    },
+
+    /**
+     * @private
+     */
+    _getCachedLineOffset: function(lineIndex, textLines) {
+      var widthOfLine = this._getCachedLineWidth(lineIndex, textLines);
+
+      return this.__lineOffsets[lineIndex] ||
+        (this.__lineOffsets[lineIndex] = this._getLineLeftOffset(widthOfLine));
+    },
+
+    /**
+     * Renders cursor
+     * @param {Object} boundaries
+     */
+    renderCursor: function(boundaries) {
+      var ctx = this.ctx;
+
+      ctx.save();
+
+      var cursorLocation = this.get2DCursorLocation(),
+          lineIndex = cursorLocation.lineIndex,
+          charIndex = cursorLocation.charIndex,
+          charHeight = this.getCurrentCharFontSize(lineIndex, charIndex),
+          leftOffset = (lineIndex === 0 && charIndex === 0)
+                    ? this._getCachedLineOffset(lineIndex, this.text.split(this._reNewline))
+                    : boundaries.leftOffset;
+
+      ctx.fillStyle = this.getCurrentCharColor(lineIndex, charIndex);
+      ctx.globalAlpha = this.__isMousedown ? 1 : this._currentCursorOpacity;
+
+      ctx.fillRect(
+        boundaries.left + leftOffset,
+        boundaries.top + boundaries.topOffset,
+        this.cursorWidth / this.scaleX,
+        charHeight);
+
+      ctx.restore();
+    },
+
+    /**
+     * Renders text selection
+     * @param {Array} chars Array of characters
+     * @param {Object} boundaries Object with left/top/leftOffset/topOffset
+     */
+    renderSelection: function(chars, boundaries) {
+      var ctx = this.ctx;
+
+      ctx.save();
+
+      ctx.fillStyle = this.selectionColor;
+
+      var start = this.get2DCursorLocation(this.selectionStart),
+          end = this.get2DCursorLocation(this.selectionEnd),
+          startLine = start.lineIndex,
+          endLine = end.lineIndex,
+          textLines = this.text.split(this._reNewline);
+
+      for (var i = startLine; i <= endLine; i++) {
+        var lineOffset = this._getCachedLineOffset(i, textLines) || 0,
+            lineHeight = this._getCachedLineHeight(i),
+            boxWidth = 0;
+
+        if (i === startLine) {
+          for (var j = 0, len = textLines[i].length; j < len; j++) {
+            if (j >= start.charIndex && (i !== endLine || j < end.charIndex)) {
+              boxWidth += this._getWidthOfChar(ctx, textLines[i][j], i, j);
+            }
+            if (j < start.charIndex) {
+              lineOffset += this._getWidthOfChar(ctx, textLines[i][j], i, j);
+            }
+          }
+        }
+        else if (i > startLine && i < endLine) {
+          boxWidth += this._getCachedLineWidth(i, textLines) || 5;
+        }
+        else if (i === endLine) {
+          for (var j2 = 0, j2len = end.charIndex; j2 < j2len; j2++) {
+            boxWidth += this._getWidthOfChar(ctx, textLines[i][j2], i, j2);
+          }
+        }
+
+        ctx.fillRect(
+          boundaries.left + lineOffset,
+          boundaries.top + boundaries.topOffset,
+          boxWidth,
+          lineHeight);
+
+        boundaries.topOffset += lineHeight;
+      }
+      ctx.restore();
+    },
+
+    /**
+     * @private
+     * @param {String} method
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _renderChars: function(method, ctx, line, left, top, lineIndex) {
+
+      if (this.isEmptyStyles()) {
+        return this._renderCharsFast(method, ctx, line, left, top);
+      }
+
+      this.skipTextAlign = true;
+
+      // set proper box offset
+      left -= this.textAlign === 'center'
+        ? (this.width / 2)
+        : (this.textAlign === 'right')
+          ? this.width
+          : 0;
+
+      // set proper line offset
+      var textLines = this.text.split(this._reNewline),
+          lineWidth = this._getWidthOfLine(ctx, lineIndex, textLines),
+          lineHeight = this._getHeightOfLine(ctx, lineIndex, textLines),
+          lineLeftOffset = this._getLineLeftOffset(lineWidth),
+          chars = line.split(''),
+          prevStyle,
+          charsToRender = '';
+
+      left += lineLeftOffset || 0;
+
+      ctx.save();
+
+      for (var i = 0, len = chars.length; i <= len; i++) {
+        prevStyle = prevStyle || this.getCurrentCharStyle(lineIndex, i);
+        var thisStyle = this.getCurrentCharStyle(lineIndex, i + 1);
+
+        if (this._hasStyleChanged(prevStyle, thisStyle) || i === len) {
+          this._renderChar(method, ctx, lineIndex, i - 1, charsToRender, left, top, lineHeight);
+          charsToRender = '';
+          prevStyle = thisStyle;
+        }
+        charsToRender += chars[i];
+      }
+
+      ctx.restore();
+    },
+
+    /**
+     * @private
+     * @param {String} method
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {String} line Content of the line
+     * @param {Number} left Left coordinate
+     * @param {Number} top Top coordinate
+     */
+    _renderCharsFast: function(method, ctx, line, left, top) {
+      this.skipTextAlign = false;
+
+      if (method === 'fillText' && this.fill) {
+        this.callSuper('_renderChars', method, ctx, line, left, top);
+      }
+      if (method === 'strokeText' && this.stroke) {
+        this.callSuper('_renderChars', method, ctx, line, left, top);
+      }
+    },
+
+    /**
+     * @private
+     * @param {String} method
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Number} lineIndex
+     * @param {Number} i
+     * @param {String} _char
+     * @param {Number} left Left coordinate
+     * @param {Number} top Top coordinate
+     * @param {Number} lineHeight Height of the line
+     */
+    _renderChar: function(method, ctx, lineIndex, i, _char, left, top, lineHeight) {
+      var decl, charWidth, charHeight;
+
+      if (this.styles && this.styles[lineIndex] && (decl = this.styles[lineIndex][i])) {
+
+        var shouldStroke = decl.stroke || this.stroke,
+            shouldFill = decl.fill || this.fill;
+
+        ctx.save();
+        charWidth = this._applyCharStylesGetWidth(ctx, _char, lineIndex, i, decl);
+        charHeight = this._getHeightOfChar(ctx, _char, lineIndex, i);
+
+        if (shouldFill) {
+          ctx.fillText(_char, left, top);
+        }
+        if (shouldStroke) {
+          ctx.strokeText(_char, left, top);
+        }
+
+        this._renderCharDecoration(ctx, decl, left, top, charWidth, lineHeight, charHeight);
+        ctx.restore();
+
+        ctx.translate(charWidth, 0);
+      }
+      else {
+        if (method === 'strokeText' && this.stroke) {
+          ctx[method](_char, left, top);
+        }
+        if (method === 'fillText' && this.fill) {
+          ctx[method](_char, left, top);
+        }
+        charWidth = this._applyCharStylesGetWidth(ctx, _char, lineIndex, i);
+        this._renderCharDecoration(ctx, null, left, top, charWidth, lineHeight);
+
+        ctx.translate(ctx.measureText(_char).width, 0);
+      }
+    },
+
+    /**
+     * @private
+     * @param {Object} prevStyle
+     * @param {Object} thisStyle
+     */
+    _hasStyleChanged: function(prevStyle, thisStyle) {
+      return (prevStyle.fill !== thisStyle.fill ||
+              prevStyle.fontSize !== thisStyle.fontSize ||
+              prevStyle.textBackgroundColor !== thisStyle.textBackgroundColor ||
+              prevStyle.textDecoration !== thisStyle.textDecoration ||
+              prevStyle.fontFamily !== thisStyle.fontFamily ||
+              prevStyle.fontWeight !== thisStyle.fontWeight ||
+              prevStyle.fontStyle !== thisStyle.fontStyle ||
+              prevStyle.stroke !== thisStyle.stroke ||
+              prevStyle.strokeWidth !== thisStyle.strokeWidth
+      );
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _renderCharDecoration: function(ctx, styleDeclaration, left, top, charWidth, lineHeight, charHeight) {
+
+      var textDecoration = styleDeclaration
+            ? (styleDeclaration.textDecoration || this.textDecoration)
+            : this.textDecoration,
+
+          fontSize = (styleDeclaration ? styleDeclaration.fontSize : null) || this.fontSize;
+
+      if (!textDecoration) {
+        return;
+      }
+
+      if (textDecoration.indexOf('underline') > -1) {
+        this._renderCharDecorationAtOffset(
+          ctx,
+          left,
+          top + (this.fontSize / this._fontSizeFraction),
+          charWidth,
+          0,
+          this.fontSize / 20
+        );
+      }
+      if (textDecoration.indexOf('line-through') > -1) {
+        this._renderCharDecorationAtOffset(
+          ctx,
+          left,
+          top + (this.fontSize / this._fontSizeFraction),
+          charWidth,
+          charHeight / 2,
+          fontSize / 20
+        );
+      }
+      if (textDecoration.indexOf('overline') > -1) {
+        this._renderCharDecorationAtOffset(
+          ctx,
+          left,
+          top,
+          charWidth,
+          lineHeight - (this.fontSize / this._fontSizeFraction),
+          this.fontSize / 20
+        );
+      }
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _renderCharDecorationAtOffset: function(ctx, left, top, charWidth, offset, thickness) {
+      ctx.fillRect(left, top - offset, charWidth, thickness);
+    },
+
+    /**
+     * @private
+     * @param {String} method
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {String} line
+     */
+    _renderTextLine: function(method, ctx, line, left, top, lineIndex) {
+      // to "cancel" this.fontSize subtraction in fabric.Text#_renderTextLine
+      top += this.fontSize / 4;
+      this.callSuper('_renderTextLine', method, ctx, line, left, top, lineIndex);
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Array} textLines
+     */
+    _renderTextDecoration: function(ctx, textLines) {
+      if (this.isEmptyStyles()) {
+        return this.callSuper('_renderTextDecoration', ctx, textLines);
+      }
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Array} textLines Array of all text lines
+     */
+    _renderTextLinesBackground: function(ctx, textLines) {
+      if (!this.textBackgroundColor && !this.styles) {
+        return;
+      }
+
+      ctx.save();
+
+      if (this.textBackgroundColor) {
+        ctx.fillStyle = this.textBackgroundColor;
+      }
+
+      var lineHeights = 0,
+          fractionOfFontSize = this.fontSize / this._fontSizeFraction;
+
+      for (var i = 0, len = textLines.length; i < len; i++) {
+
+        var heightOfLine = this._getHeightOfLine(ctx, i, textLines);
+        if (textLines[i] === '') {
+          lineHeights += heightOfLine;
+          continue;
+        }
+
+        var lineWidth = this._getWidthOfLine(ctx, i, textLines),
+            lineLeftOffset = this._getLineLeftOffset(lineWidth);
+
+        if (this.textBackgroundColor) {
+          ctx.fillStyle = this.textBackgroundColor;
+
+          ctx.fillRect(
+            this._getLeftOffset() + lineLeftOffset,
+            this._getTopOffset() + lineHeights + fractionOfFontSize,
+            lineWidth,
+            heightOfLine
+          );
+        }
+        if (this.styles[i]) {
+          for (var j = 0, jlen = textLines[i].length; j < jlen; j++) {
+            if (this.styles[i] && this.styles[i][j] && this.styles[i][j].textBackgroundColor) {
+
+              var _char = textLines[i][j];
+
+              ctx.fillStyle = this.styles[i][j].textBackgroundColor;
+
+              ctx.fillRect(
+                this._getLeftOffset() + lineLeftOffset + this._getWidthOfCharsAt(ctx, i, j, textLines),
+                this._getTopOffset() + lineHeights + fractionOfFontSize,
+                this._getWidthOfChar(ctx, _char, i, j, textLines) + 1,
+                heightOfLine
+              );
+            }
+          }
+        }
+        lineHeights += heightOfLine;
+      }
+      ctx.restore();
+    },
+
+    /**
+     * @private
+     */
+    _getCacheProp: function(_char, styleDeclaration) {
+      return _char +
+
+             styleDeclaration.fontFamily +
+             styleDeclaration.fontSize +
+             styleDeclaration.fontWeight +
+             styleDeclaration.fontStyle +
+
+             styleDeclaration.shadow;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {String} _char
+     * @param {Number} lineIndex
+     * @param {Number} charIndex
+     * @param {Object} [decl]
+     */
+    _applyCharStylesGetWidth: function(ctx, _char, lineIndex, charIndex, decl) {
+      var styleDeclaration = decl ||
+                            (this.styles[lineIndex] &&
+                             this.styles[lineIndex][charIndex]);
+
+      if (styleDeclaration) {
+        // cloning so that original style object is not polluted with following font declarations
+        styleDeclaration = clone(styleDeclaration);
+      }
+      else {
+        styleDeclaration = { };
+      }
+
+      this._applyFontStyles(styleDeclaration);
+
+      var cacheProp = this._getCacheProp(_char, styleDeclaration);
+
+      // short-circuit if no styles
+      if (this.isEmptyStyles() && this._charWidthsCache[cacheProp] && this.caching) {
+        return this._charWidthsCache[cacheProp];
+      }
+
+      if (typeof styleDeclaration.shadow === 'string') {
+        styleDeclaration.shadow = new fabric.Shadow(styleDeclaration.shadow);
+      }
+
+      var fill = styleDeclaration.fill || this.fill;
+      ctx.fillStyle = fill.toLive
+        ? fill.toLive(ctx)
+        : fill;
+
+      if (styleDeclaration.stroke) {
+        ctx.strokeStyle = (styleDeclaration.stroke && styleDeclaration.stroke.toLive)
+          ? styleDeclaration.stroke.toLive(ctx)
+          : styleDeclaration.stroke;
+      }
+
+      ctx.lineWidth = styleDeclaration.strokeWidth || this.strokeWidth;
+      ctx.font = this._getFontDeclaration.call(styleDeclaration);
+      this._setShadow.call(styleDeclaration, ctx);
+
+      if (!this.caching) {
+        return ctx.measureText(_char).width;
+      }
+
+      if (!this._charWidthsCache[cacheProp]) {
+        this._charWidthsCache[cacheProp] = ctx.measureText(_char).width;
+      }
+
+      return this._charWidthsCache[cacheProp];
+    },
+
+    /**
+     * @private
+     * @param {Object} styleDeclaration
+     */
+    _applyFontStyles: function(styleDeclaration) {
+      if (!styleDeclaration.fontFamily) {
+        styleDeclaration.fontFamily = this.fontFamily;
+      }
+      if (!styleDeclaration.fontSize) {
+        styleDeclaration.fontSize = this.fontSize;
+      }
+      if (!styleDeclaration.fontWeight) {
+        styleDeclaration.fontWeight = this.fontWeight;
+      }
+      if (!styleDeclaration.fontStyle) {
+        styleDeclaration.fontStyle = this.fontStyle;
+      }
+    },
+
+    /**
+     * @private
+     * @param {Number} lineIndex
+     * @param {Number} charIndex
+     */
+    _getStyleDeclaration: function(lineIndex, charIndex) {
+      return (this.styles[lineIndex] && this.styles[lineIndex][charIndex])
+        ? clone(this.styles[lineIndex][charIndex])
+        : { };
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getWidthOfChar: function(ctx, _char, lineIndex, charIndex) {
+      if (this.textAlign === 'justify' && /\s/.test(_char)) {
+        return this._getWidthOfSpace(ctx, lineIndex);
+      }
+
+      var styleDeclaration = this._getStyleDeclaration(lineIndex, charIndex);
+      this._applyFontStyles(styleDeclaration);
+      var cacheProp = this._getCacheProp(_char, styleDeclaration);
+
+      if (this._charWidthsCache[cacheProp] && this.caching) {
+        return this._charWidthsCache[cacheProp];
+      }
+      else if (ctx) {
+        ctx.save();
+        var width = this._applyCharStylesGetWidth(ctx, _char, lineIndex, charIndex);
+        ctx.restore();
+        return width;
+      }
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getHeightOfChar: function(ctx, _char, lineIndex, charIndex) {
+      if (this.styles[lineIndex] && this.styles[lineIndex][charIndex]) {
+        return this.styles[lineIndex][charIndex].fontSize || this.fontSize;
+      }
+      return this.fontSize;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getWidthOfCharAt: function(ctx, lineIndex, charIndex, lines) {
+      lines = lines || this.text.split(this._reNewline);
+      var _char = lines[lineIndex].split('')[charIndex];
+      return this._getWidthOfChar(ctx, _char, lineIndex, charIndex);
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getHeightOfCharAt: function(ctx, lineIndex, charIndex, lines) {
+      lines = lines || this.text.split(this._reNewline);
+      var _char = lines[lineIndex].split('')[charIndex];
+      return this._getHeightOfChar(ctx, _char, lineIndex, charIndex);
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getWidthOfCharsAt: function(ctx, lineIndex, charIndex, lines) {
+      var width = 0;
+      for (var i = 0; i < charIndex; i++) {
+        width += this._getWidthOfCharAt(ctx, lineIndex, i, lines);
+      }
+      return width;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getWidthOfLine: function(ctx, lineIndex, textLines) {
+      // if (!this.styles[lineIndex]) {
+      //   return this.callSuper('_getLineWidth', ctx, textLines[lineIndex]);
+      // }
+      return this._getWidthOfCharsAt(ctx, lineIndex, textLines[lineIndex].length, textLines);
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Number} lineIndex
+     */
+    _getWidthOfSpace: function (ctx, lineIndex) {
+      var lines = this.text.split(this._reNewline),
+          line = lines[lineIndex],
+          words = line.split(/\s+/),
+          wordsWidth = this._getWidthOfWords(ctx, line, lineIndex),
+          widthDiff = this.width - wordsWidth,
+          numSpaces = words.length - 1,
+          width = widthDiff / numSpaces;
+
+      return width;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Number} line
+     * @param {Number} lineIndex
+     */
+    _getWidthOfWords: function (ctx, line, lineIndex) {
+      var width = 0;
+
+      for (var charIndex = 0; charIndex < line.length; charIndex++) {
+        var _char = line[charIndex];
+
+        if (!_char.match(/\s/)) {
+          width += this._getWidthOfChar(ctx, _char, lineIndex, charIndex);
+        }
+      }
+
+      return width;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getTextWidth: function(ctx, textLines) {
+
+      if (this.isEmptyStyles()) {
+        return this.callSuper('_getTextWidth', ctx, textLines);
+      }
+
+      var maxWidth = this._getWidthOfLine(ctx, 0, textLines);
+
+      for (var i = 1, len = textLines.length; i < len; i++) {
+        var currentLineWidth = this._getWidthOfLine(ctx, i, textLines);
+        if (currentLineWidth > maxWidth) {
+          maxWidth = currentLineWidth;
+        }
+      }
+      return maxWidth;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     */
+    _getHeightOfLine: function(ctx, lineIndex, textLines) {
+
+      textLines = textLines || this.text.split(this._reNewline);
+
+      var maxHeight = this._getHeightOfChar(ctx, textLines[lineIndex][0], lineIndex, 0),
+          line = textLines[lineIndex],
+          chars = line.split('');
+
+      for (var i = 1, len = chars.length; i < len; i++) {
+        var currentCharHeight = this._getHeightOfChar(ctx, chars[i], lineIndex, i);
+        if (currentCharHeight > maxHeight) {
+          maxHeight = currentCharHeight;
+        }
+      }
+
+      return maxHeight * this.lineHeight;
+    },
+
+    /**
+     * @private
+     * @param {CanvasRenderingContext2D} ctx Context to render on
+     * @param {Array} textLines Array of all text lines
+     */
+    _getTextHeight: function(ctx, textLines) {
+      var height = 0;
+      for (var i = 0, len = textLines.length; i < len; i++) {
+        height += this._getHeightOfLine(ctx, i, textLines);
+      }
+      return height;
+    },
+
+    /**
+     * @private
+     */
+    _getTopOffset: function() {
+      var topOffset = fabric.Text.prototype._getTopOffset.call(this);
+      return topOffset - (this.fontSize / this._fontSizeFraction);
+    },
+
+    /**
+     * This method is overwritten to account for different top offset
+     * @private
+     */
+    _renderTextBoxBackground: function(ctx) {
+      if (!this.backgroundColor) {
+        return;
+      }
+
+      ctx.save();
+      ctx.fillStyle = this.backgroundColor;
+
+      ctx.fillRect(
+        this._getLeftOffset(),
+        this._getTopOffset() + (this.fontSize / this._fontSizeFraction),
+        this.width,
+        this.height
+      );
+
+      ctx.restore();
+    },
+
+    /**
+     * Returns object representation of an instance
+     * @method toObject
+     * @param {Array} [propertiesToInclude] Any properties that you might want to additionally include in the output
+     * @return {Object} object representation of an instance
+     */
+    toObject: function(propertiesToInclude) {
+      return fabric.util.object.extend(this.callSuper('toObject', propertiesToInclude), {
+        styles: clone(this.styles)
+      });
+    }
+  });
+
+  /**
+   * Returns fabric.IText instance from an object representation
+   * @static
+   * @memberOf fabric.IText
+   * @param {Object} object Object to create an instance from
+   * @return {fabric.IText} instance of fabric.IText
+   */
+  fabric.IText.fromObject = function(object) {
+    return new fabric.IText(object.text, clone(object));
+  };
+
+  /**
+   * Contains all fabric.IText objects that have been created
+   * @static
+   * @memberof fabric.IText
+   * @type Array
+   */
+  fabric.IText.instances = [ ];
+
+})();
+
+
+(function() {
+
+  var clone = fabric.util.object.clone;
+
+  fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.prototype */ {
+
+    /**
+     * Initializes all the interactive behavior of IText
+     */
+    initBehavior: function() {
+      this.initAddedHandler();
+      this.initCursorSelectionHandlers();
+      this.initDoubleClickSimulation();
+    },
+
+    /**
+     * Initializes "selected" event handler
+     */
+    initSelectedHandler: function() {
+      this.on('selected', function() {
+
+        var _this = this;
+        setTimeout(function() {
+          _this.selected = true;
+        }, 100);
+      });
+    },
+
+    /**
+     * Initializes "added" event handler
+     */
+    initAddedHandler: function() {
+      this.on('added', function() {
+        if (this.canvas && !this.canvas._hasITextHandlers) {
+          this.canvas._hasITextHandlers = true;
+          this._initCanvasHandlers();
+        }
+      });
+    },
+
+    /**
+     * @private
+     */
+    _initCanvasHandlers: function() {
+      this.canvas.on('selection:cleared', function() {
+        fabric.IText.prototype.exitEditingOnOthers.call();
+      });
+
+      this.canvas.on('mouse:up', function() {
+        fabric.IText.instances.forEach(function(obj) {
+          obj.__isMousedown = false;
+        });
+      });
+
+      this.canvas.on('object:selected', function(options) {
+        fabric.IText.prototype.exitEditingOnOthers.call(options.target);
+      });
+    },
+
+    /**
+     * @private
+     */
+    _tick: function() {
+      if (this._abortCursorAnimation) {
+        return;
+      }
+
+      var _this = this;
+
+      this.animate('_currentCursorOpacity', 1, {
+
+        duration: this.cursorDuration,
+
+        onComplete: function() {
+          _this._onTickComplete();
+        },
+
+        onChange: function() {
+          _this.canvas && _this.canvas.renderAll();
+        },
+
+        abort: function() {
+          return _this._abortCursorAnimation;
+        }
+      });
+    },
+
+    /**
+     * @private
+     */
+    _onTickComplete: function() {
+      if (this._abortCursorAnimation) {
+        return;
+      }
+
+      var _this = this;
+      if (this._cursorTimeout1) {
+        clearTimeout(this._cursorTimeout1);
+      }
+      this._cursorTimeout1 = setTimeout(function() {
+        _this.animate('_currentCursorOpacity', 0, {
+          duration: this.cursorDuration / 2,
+          onComplete: function() {
+            _this._tick();
+          },
+          onChange: function() {
+            _this.canvas && _this.canvas.renderAll();
+          },
+          abort: function() {
+            return _this._abortCursorAnimation;
+          }
+        });
+      }, 100);
+    },
+
+    /**
+     * Initializes delayed cursor
+     */
+    initDelayedCursor: function(restart) {
+      var _this = this,
+          delay = restart ? 0 : this.cursorDelay;
+
+      if (restart) {
+        this._abortCursorAnimation = true;
+        clearTimeout(this._cursorTimeout1);
+        this._currentCursorOpacity = 1;
+        this.canvas && this.canvas.renderAll();
+      }
+      if (this._cursorTimeout2) {
+        clearTimeout(this._cursorTimeout2);
+      }
+      this._cursorTimeout2 = setTimeout(function() {
+        _this._abortCursorAnimation = false;
+        _this._tick();
+      }, delay);
+    },
+
+    /**
+     * Aborts cursor animation and clears all timeouts
+     */
+    abortCursorAnimation: function() {
+      this._abortCursorAnimation = true;
+
+      clearTimeout(this._cursorTimeout1);
+      clearTimeout(this._cursorTimeout2);
+
+      this._currentCursorOpacity = 0;
+      this.canvas && this.canvas.renderAll();
+
+      var _this = this;
+      setTimeout(function() {
+        _this._abortCursorAnimation = false;
+      }, 10);
+    },
+
+    /**
+     * Selects entire text
+     */
+    selectAll: function() {
+      this.selectionStart = 0;
+      this.selectionEnd = this.text.length;
+      this.fire('selection:changed');
+      this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+    },
+
+    /**
+     * Returns selected text
+     * @return {String}
+     */
+    getSelectedText: function() {
+      return this.text.slice(this.selectionStart, this.selectionEnd);
+    },
+
+    /**
+     * Find new selection index representing start of current word according to current selection index
+     * @param {Number} startFrom Surrent selection index
+     * @return {Number} New selection index
+     */
+    findWordBoundaryLeft: function(startFrom) {
+      var offset = 0, index = startFrom - 1;
+
+      // remove space before cursor first
+      if (this._reSpace.test(this.text.charAt(index))) {
+        while (this._reSpace.test(this.text.charAt(index))) {
+          offset++;
+          index--;
+        }
+      }
+      while (/\S/.test(this.text.charAt(index)) && index > -1) {
+        offset++;
+        index--;
+      }
+
+      return startFrom - offset;
+    },
+
+    /**
+     * Find new selection index representing end of current word according to current selection index
+     * @param {Number} startFrom Current selection index
+     * @return {Number} New selection index
+     */
+    findWordBoundaryRight: function(startFrom) {
+      var offset = 0, index = startFrom;
+
+      // remove space after cursor first
+      if (this._reSpace.test(this.text.charAt(index))) {
+        while (this._reSpace.test(this.text.charAt(index))) {
+          offset++;
+          index++;
+        }
+      }
+      while (/\S/.test(this.text.charAt(index)) && index < this.text.length) {
+        offset++;
+        index++;
+      }
+
+      return startFrom + offset;
+    },
+
+    /**
+     * Find new selection index representing start of current line according to current selection index
+     * @param {Number} startFrom Current selection index
+     * @return {Number} New selection index
+     */
+    findLineBoundaryLeft: function(startFrom) {
+      var offset = 0, index = startFrom - 1;
+
+      while (!/\n/.test(this.text.charAt(index)) && index > -1) {
+        offset++;
+        index--;
+      }
+
+      return startFrom - offset;
+    },
+
+    /**
+     * Find new selection index representing end of current line according to current selection index
+     * @param {Number} startFrom Current selection index
+     * @return {Number} New selection index
+     */
+    findLineBoundaryRight: function(startFrom) {
+      var offset = 0, index = startFrom;
+
+      while (!/\n/.test(this.text.charAt(index)) && index < this.text.length) {
+        offset++;
+        index++;
+      }
+
+      return startFrom + offset;
+    },
+
+    /**
+     * Returns number of newlines in selected text
+     * @return {Number} Number of newlines in selected text
+     */
+    getNumNewLinesInSelectedText: function() {
+      var selectedText = this.getSelectedText(),
+          numNewLines = 0;
+
+      for (var i = 0, chars = selectedText.split(''), len = chars.length; i < len; i++) {
+        if (chars[i] === '\n') {
+          numNewLines++;
+        }
+      }
+      return numNewLines;
+    },
+
+    /**
+     * Finds index corresponding to beginning or end of a word
+     * @param {Number} selectionStart Index of a character
+     * @param {Number} direction: 1 or -1
+     * @return {Number} Index of the beginning or end of a word
+     */
+    searchWordBoundary: function(selectionStart, direction) {
+      var index = this._reSpace.test(this.text.charAt(selectionStart)) ? selectionStart - 1 : selectionStart,
+          _char = this.text.charAt(index),
+          reNonWord = /[ \n\.,;!\?\-]/;
+
+      while (!reNonWord.test(_char) && index > 0 && index < this.text.length) {
+        index += direction;
+        _char = this.text.charAt(index);
+      }
+      if (reNonWord.test(_char) && _char !== '\n') {
+        index += direction === 1 ? 0 : 1;
+      }
+      return index;
+    },
+
+    /**
+     * Selects a word based on the index
+     * @param {Number} selectionStart Index of a character
+     */
+    selectWord: function(selectionStart) {
+      var newSelectionStart = this.searchWordBoundary(selectionStart, -1), /* search backwards */
+          newSelectionEnd = this.searchWordBoundary(selectionStart, 1); /* search forward */
+
+      this.setSelectionStart(newSelectionStart);
+      this.setSelectionEnd(newSelectionEnd);
+      this.initDelayedCursor(true);
+    },
+
+    /**
+     * Selects a line based on the index
+     * @param {Number} selectionStart Index of a character
+     */
+    selectLine: function(selectionStart) {
+      var newSelectionStart = this.findLineBoundaryLeft(selectionStart),
+          newSelectionEnd = this.findLineBoundaryRight(selectionStart);
+
+      this.setSelectionStart(newSelectionStart);
+      this.setSelectionEnd(newSelectionEnd);
+      this.initDelayedCursor(true);
+    },
+
+    /**
+     * Enters editing state
+     * @return {fabric.IText} thisArg
+     * @chainable
+     */
+    enterEditing: function() {
+      if (this.isEditing || !this.editable) {
+        return;
+      }
+
+      this.exitEditingOnOthers();
+
+      this.isEditing = true;
+
+      this.initHiddenTextarea();
+      this._updateTextarea();
+      this._saveEditingProps();
+      this._setEditingProps();
+
+      this._tick();
+      this.canvas && this.canvas.renderAll();
+
+      this.fire('editing:entered');
+      this.canvas && this.canvas.fire('text:editing:entered', { target: this });
+
+      return this;
+    },
+
+    exitEditingOnOthers: function() {
+      fabric.IText.instances.forEach(function(obj) {
+        obj.selected = false;
+        if (obj.isEditing) {
+          obj.exitEditing();
+        }
+      }, this);
+    },
+
+    /**
+     * @private
+     */
+    _setEditingProps: function() {
+      this.hoverCursor = 'text';
+
+      if (this.canvas) {
+        this.canvas.defaultCursor = this.canvas.moveCursor = 'text';
+      }
+
+      this.borderColor = this.editingBorderColor;
+
+      this.hasControls = this.selectable = false;
+      this.lockMovementX = this.lockMovementY = true;
+    },
+
+    /**
+     * @private
+     */
+    _updateTextarea: function() {
+      if (!this.hiddenTextarea) {
+        return;
+      }
+
+      this.hiddenTextarea.value = this.text;
+      this.hiddenTextarea.selectionStart = this.selectionStart;
+    },
+
+    /**
+     * @private
+     */
+    _saveEditingProps: function() {
+      this._savedProps = {
+        hasControls: this.hasControls,
+        borderColor: this.borderColor,
+        lockMovementX: this.lockMovementX,
+        lockMovementY: this.lockMovementY,
+        hoverCursor: this.hoverCursor,
+        defaultCursor: this.canvas && this.canvas.defaultCursor,
+        moveCursor: this.canvas && this.canvas.moveCursor
+      };
+    },
+
+    /**
+     * @private
+     */
+    _restoreEditingProps: function() {
+      if (!this._savedProps) {
+        return;
+      }
+
+      this.hoverCursor = this._savedProps.overCursor;
+      this.hasControls = this._savedProps.hasControls;
+      this.borderColor = this._savedProps.borderColor;
+      this.lockMovementX = this._savedProps.lockMovementX;
+      this.lockMovementY = this._savedProps.lockMovementY;
+
+      if (this.canvas) {
+        this.canvas.defaultCursor = this._savedProps.defaultCursor;
+        this.canvas.moveCursor = this._savedProps.moveCursor;
+      }
+    },
+
+    /**
+     * Exits from editing state
+     * @return {fabric.IText} thisArg
+     * @chainable
+     */
+    exitEditing: function() {
+
+      this.selected = false;
+      this.isEditing = false;
+      this.selectable = true;
+
+      this.selectionEnd = this.selectionStart;
+      this.hiddenTextarea && this.canvas && this.hiddenTextarea.parentNode.removeChild(this.hiddenTextarea);
+      this.hiddenTextarea = null;
+
+      this.abortCursorAnimation();
+      this._restoreEditingProps();
+      this._currentCursorOpacity = 0;
+
+      this.fire('editing:exited');
+      this.canvas && this.canvas.fire('text:editing:exited', { target: this });
+
+      return this;
+    },
+
+    /**
+     * @private
+     */
+    _removeExtraneousStyles: function() {
+      var textLines = this.text.split(this._reNewline);
+      for (var prop in this.styles) {
+        if (!textLines[prop]) {
+          delete this.styles[prop];
+        }
+      }
+    },
+
+    /**
+     * @private
+     */
+    _removeCharsFromTo: function(start, end) {
+
+      var i = end;
+      while (i !== start) {
+
+        var prevIndex = this.get2DCursorLocation(i).charIndex;
+        i--;
+
+        var index = this.get2DCursorLocation(i).charIndex,
+            isNewline = index > prevIndex;
+
+        if (isNewline) {
+          this.removeStyleObject(isNewline, i + 1);
+        }
+        else {
+          this.removeStyleObject(this.get2DCursorLocation(i).charIndex === 0, i);
+        }
+
+      }
+
+      this.text = this.text.slice(0, start) +
+                  this.text.slice(end);
+    },
+
+    /**
+     * Inserts a character where cursor is (replacing selection if one exists)
+     * @param {String} _chars Characters to insert
+     */
+    insertChars: function(_chars) {
+      var isEndOfLine = this.text.slice(this.selectionStart, this.selectionStart + 1) === '\n';
+
+      this.text = this.text.slice(0, this.selectionStart) +
+                    _chars +
+                  this.text.slice(this.selectionEnd);
+
+      if (this.selectionStart === this.selectionEnd) {
+        this.insertStyleObjects(_chars, isEndOfLine, this.copiedStyles);
+      }
+      // else if (this.selectionEnd - this.selectionStart > 1) {
+        // TODO: replace styles properly
+        // console.log('replacing MORE than 1 char');
+      // }
+
+      this.selectionStart += _chars.length;
+      this.selectionEnd = this.selectionStart;
+
+      if (this.canvas) {
+        // TODO: double renderAll gets rid of text box shift happenning sometimes
+        // need to find out what exactly causes it and fix it
+        this.canvas.renderAll().renderAll();
+      }
+
+      this.setCoords();
+      this.fire('changed');
+      this.canvas && this.canvas.fire('text:changed', { target: this });
+    },
+
+    /**
+     * Inserts new style object
+     * @param {Number} lineIndex Index of a line
+     * @param {Number} charIndex Index of a char
+     * @param {Boolean} isEndOfLine True if it's end of line
+     */
+    insertNewlineStyleObject: function(lineIndex, charIndex, isEndOfLine) {
+
+      this.shiftLineStyles(lineIndex, +1);
+
+      if (!this.styles[lineIndex + 1]) {
+        this.styles[lineIndex + 1] = { };
+      }
+
+      var currentCharStyle = this.styles[lineIndex][charIndex - 1],
+          newLineStyles = { };
+
+      // if there's nothing after cursor,
+      // we clone current char style onto the next (otherwise empty) line
+      if (isEndOfLine) {
+        newLineStyles[0] = clone(currentCharStyle);
+        this.styles[lineIndex + 1] = newLineStyles;
+      }
+      // otherwise we clone styles of all chars
+      // after cursor onto the next line, from the beginning
+      else {
+        for (var index in this.styles[lineIndex]) {
+          if (parseInt(index, 10) >= charIndex) {
+            newLineStyles[parseInt(index, 10) - charIndex] = this.styles[lineIndex][index];
+            // remove lines from the previous line since they're on a new line now
+            delete this.styles[lineIndex][index];
+          }
+        }
+        this.styles[lineIndex + 1] = newLineStyles;
+      }
+    },
+
+    /**
+     * Inserts style object for a given line/char index
+     * @param {Number} lineIndex Index of a line
+     * @param {Number} charIndex Index of a char
+     * @param {Object} [style] Style object to insert, if given
+     */
+    insertCharStyleObject: function(lineIndex, charIndex, style) {
+
+      var currentLineStyles = this.styles[lineIndex],
+          currentLineStylesCloned = clone(currentLineStyles);
+
+      if (charIndex === 0 && !style) {
+        charIndex = 1;
+      }
+
+      // shift all char styles by 1 forward
+      // 0,1,2,3 -> (charIndex=2) -> 0,1,3,4 -> (insert 2) -> 0,1,2,3,4
+      for (var index in currentLineStylesCloned) {
+        var numericIndex = parseInt(index, 10);
+        if (numericIndex >= charIndex) {
+          currentLineStyles[numericIndex + 1] = currentLineStylesCloned[numericIndex];
+          //delete currentLineStyles[index];
+        }
+      }
+
+      this.styles[lineIndex][charIndex] =
+        style || clone(currentLineStyles[charIndex - 1]);
+    },
+
+    /**
+     * Inserts style object(s)
+     * @param {String} _chars Characters at the location where style is inserted
+     * @param {Boolean} isEndOfLine True if it's end of line
+     * @param {Array} [styles] Styles to insert
+     */
+    insertStyleObjects: function(_chars, isEndOfLine, styles) {
+      // removed shortcircuit over isEmptyStyles
+
+      var cursorLocation = this.get2DCursorLocation(),
+          lineIndex = cursorLocation.lineIndex,
+          charIndex = cursorLocation.charIndex;
+
+      if (!this.styles[lineIndex]) {
+        this.styles[lineIndex] = { };
+      }
+
+      if (_chars === '\n') {
+        this.insertNewlineStyleObject(lineIndex, charIndex, isEndOfLine);
+      }
+      else {
+        if (styles) {
+          this._insertStyles(styles);
+        }
+        else {
+          // TODO: support multiple style insertion if _chars.length > 1
+          this.insertCharStyleObject(lineIndex, charIndex);
+        }
+      }
+    },
+
+    /**
+     * @private
+     */
+    _insertStyles: function(styles) {
+      for (var i = 0, len = styles.length; i < len; i++) {
+
+        var cursorLocation = this.get2DCursorLocation(this.selectionStart + i),
+            lineIndex = cursorLocation.lineIndex,
+            charIndex = cursorLocation.charIndex;
+
+        this.insertCharStyleObject(lineIndex, charIndex, styles[i]);
+      }
+    },
+
+    /**
+     * Shifts line styles up or down
+     * @param {Number} lineIndex Index of a line
+     * @param {Number} offset Can be -1 or +1
+     */
+    shiftLineStyles: function(lineIndex, offset) {
+      // shift all line styles by 1 upward
+      var clonedStyles = clone(this.styles);
+      for (var line in this.styles) {
+        var numericLine = parseInt(line, 10);
+        if (numericLine > lineIndex) {
+          this.styles[numericLine + offset] = clonedStyles[numericLine];
+        }
+      }
+    },
+
+    /**
+     * Removes style object
+     * @param {Boolean} isBeginningOfLine True if cursor is at the beginning of line
+     * @param {Number} [index] Optional index. When not given, current selectionStart is used.
+     */
+    removeStyleObject: function(isBeginningOfLine, index) {
+
+      var cursorLocation = this.get2DCursorLocation(index),
+          lineIndex = cursorLocation.lineIndex,
+          charIndex = cursorLocation.charIndex;
+
+      if (isBeginningOfLine) {
+
+        var textLines = this.text.split(this._reNewline),
+            textOnPreviousLine = textLines[lineIndex - 1],
+            newCharIndexOnPrevLine = textOnPreviousLine
+              ? textOnPreviousLine.length
+              : 0;
+
+        if (!this.styles[lineIndex - 1]) {
+          this.styles[lineIndex - 1] = { };
+        }
+
+        for (charIndex in this.styles[lineIndex]) {
+          this.styles[lineIndex - 1][parseInt(charIndex, 10) + newCharIndexOnPrevLine]
+            = this.styles[lineIndex][charIndex];
+        }
+
+        this.shiftLineStyles(lineIndex, -1);
+      }
+      else {
+        var currentLineStyles = this.styles[lineIndex];
+
+        if (currentLineStyles) {
+          var offset = this.selectionStart === this.selectionEnd ? -1 : 0;
+          delete currentLineStyles[charIndex + offset];
+          // console.log('deleting', lineIndex, charIndex + offset);
+        }
+
+        var currentLineStylesCloned = clone(currentLineStyles);
+
+        // shift all styles by 1 backwards
+        for (var i in currentLineStylesCloned) {
+          var numericIndex = parseInt(i, 10);
+          if (numericIndex >= charIndex && numericIndex !== 0) {
+            currentLineStyles[numericIndex - 1] = currentLineStylesCloned[numericIndex];
+            delete currentLineStyles[numericIndex];
+          }
+        }
+      }
+    },
+
+    /**
+     * Inserts new line
+     */
+    insertNewline: function() {
+      this.insertChars('\n');
+    }
+  });
+})();
+
+
+fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.prototype */ {
+  /**
+   * Initializes "dbclick" event handler
+   */
+  initDoubleClickSimulation: function() {
+
+    // for double click
+    this.__lastClickTime = +new Date();
+
+    // for triple click
+    this.__lastLastClickTime = +new Date();
+
+    this.__lastPointer = { };
+
+    this.on('mousedown', this.onMouseDown.bind(this));
+  },
+
+  onMouseDown: function(options) {
+
+    this.__newClickTime = +new Date();
+    var newPointer = this.canvas.getPointer(options.e);
+
+    if (this.isTripleClick(newPointer)) {
+      this.fire('tripleclick', options);
+      this._stopEvent(options.e);
+    }
+    else if (this.isDoubleClick(newPointer)) {
+      this.fire('dblclick', options);
+      this._stopEvent(options.e);
+    }
+
+    this.__lastLastClickTime = this.__lastClickTime;
+    this.__lastClickTime = this.__newClickTime;
+    this.__lastPointer = newPointer;
+    this.__lastIsEditing = this.isEditing;
+    this.__lastSelected = this.selected;
+  },
+
+  isDoubleClick: function(newPointer) {
+    return this.__newClickTime - this.__lastClickTime < 500 &&
+        this.__lastPointer.x === newPointer.x &&
+        this.__lastPointer.y === newPointer.y && this.__lastIsEditing;
+  },
+
+  isTripleClick: function(newPointer) {
+    return this.__newClickTime - this.__lastClickTime < 500 &&
+        this.__lastClickTime - this.__lastLastClickTime < 500 &&
+        this.__lastPointer.x === newPointer.x &&
+        this.__lastPointer.y === newPointer.y;
+  },
+
+  /**
+   * @private
+   */
+  _stopEvent: function(e) {
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+  },
+
+  /**
+   * Initializes event handlers related to cursor or selection
+   */
+  initCursorSelectionHandlers: function() {
+    this.initSelectedHandler();
+    this.initMousedownHandler();
+    this.initMousemoveHandler();
+    this.initMouseupHandler();
+    this.initClicks();
+  },
+
+  /**
+   * Initializes double and triple click event handlers
+   */
+  initClicks: function() {
+    this.on('dblclick', function(options) {
+      this.selectWord(this.getSelectionStartFromPointer(options.e));
+    });
+    this.on('tripleclick', function(options) {
+      this.selectLine(this.getSelectionStartFromPointer(options.e));
+    });
+  },
+
+  /**
+   * Initializes "mousedown" event handler
+   */
+  initMousedownHandler: function() {
+    this.on('mousedown', function(options) {
+
+      var pointer = this.canvas.getPointer(options.e);
+
+      this.__mousedownX = pointer.x;
+      this.__mousedownY = pointer.y;
+      this.__isMousedown = true;
+
+      if (this.hiddenTextarea && this.canvas) {
+        this.canvas.wrapperEl.appendChild(this.hiddenTextarea);
+      }
+
+      if (this.selected) {
+        this.setCursorByClick(options.e);
+      }
+
+      if (this.isEditing) {
+        this.__selectionStartOnMouseDown = this.selectionStart;
+        this.initDelayedCursor(true);
+      }
+    });
+  },
+
+  /**
+   * Initializes "mousemove" event handler
+   */
+  initMousemoveHandler: function() {
+    this.on('mousemove', function(options) {
+      if (!this.__isMousedown || !this.isEditing) {
+        return;
+      }
+
+      var newSelectionStart = this.getSelectionStartFromPointer(options.e);
+
+      if (newSelectionStart >= this.__selectionStartOnMouseDown) {
+        this.setSelectionStart(this.__selectionStartOnMouseDown);
+        this.setSelectionEnd(newSelectionStart);
+      }
+      else {
+        this.setSelectionStart(newSelectionStart);
+        this.setSelectionEnd(this.__selectionStartOnMouseDown);
+      }
+    });
+  },
+
+  /**
+   * @private
+   */
+  _isObjectMoved: function(e) {
+    var pointer = this.canvas.getPointer(e);
+
+    return this.__mousedownX !== pointer.x ||
+           this.__mousedownY !== pointer.y;
+  },
+
+  /**
+   * Initializes "mouseup" event handler
+   */
+  initMouseupHandler: function() {
+    this.on('mouseup', function(options) {
+      this.__isMousedown = false;
+      if (this._isObjectMoved(options.e)) {
+        return;
+      }
+
+      if (this.__lastSelected) {
+        this.enterEditing();
+        this.initDelayedCursor(true);
+      }
+      this.selected = true;
+    });
+  },
+
+  /**
+   * Changes cursor location in a text depending on passed pointer (x/y) object
+   * @param {Event} e Event object
+   */
+  setCursorByClick: function(e) {
+    var newSelectionStart = this.getSelectionStartFromPointer(e);
+
+    if (e.shiftKey) {
+      if (newSelectionStart < this.selectionStart) {
+        this.setSelectionEnd(this.selectionStart);
+        this.setSelectionStart(newSelectionStart);
+      }
+      else {
+        this.setSelectionEnd(newSelectionStart);
+      }
+    }
+    else {
+      this.setSelectionStart(newSelectionStart);
+      this.setSelectionEnd(newSelectionStart);
+    }
+  },
+
+  /**
+   * @private
+   * @param {Event} e Event object
+   * @return {Object} Coordinates of a pointer (x, y)
+   */
+  _getLocalRotatedPointer: function(e) {
+    var pointer = this.canvas.getPointer(e),
+
+        pClicked = new fabric.Point(pointer.x, pointer.y),
+        pLeftTop = new fabric.Point(this.left, this.top),
+
+        rotated = fabric.util.rotatePoint(
+          pClicked, pLeftTop, fabric.util.degreesToRadians(-this.angle));
+
+    return this.getLocalPointer(e, rotated);
+  },
+
+  /**
+   * Returns index of a character corresponding to where an object was clicked
+   * @param {Event} e Event object
+   * @return {Number} Index of a character
+   */
+  getSelectionStartFromPointer: function(e) {
+    var mouseOffset = this._getLocalRotatedPointer(e),
+        textLines = this.text.split(this._reNewline),
+        prevWidth = 0,
+        width = 0,
+        height = 0,
+        charIndex = 0,
+        newSelectionStart;
+
+    for (var i = 0, len = textLines.length; i < len; i++) {
+
+      height += this._getHeightOfLine(this.ctx, i) * this.scaleY;
+
+      var widthOfLine = this._getWidthOfLine(this.ctx, i, textLines),
+          lineLeftOffset = this._getLineLeftOffset(widthOfLine);
+
+      width = lineLeftOffset * this.scaleX;
+
+      if (this.flipX) {
+        // when oject is horizontally flipped we reverse chars
+        textLines[i] = textLines[i].split('').reverse().join('');
+      }
+
+      for (var j = 0, jlen = textLines[i].length; j < jlen; j++) {
+
+        var _char = textLines[i][j];
+        prevWidth = width;
+
+        width += this._getWidthOfChar(this.ctx, _char, i, this.flipX ? jlen - j : j) *
+                 this.scaleX;
+
+        if (height <= mouseOffset.y || width <= mouseOffset.x) {
+          charIndex++;
+          continue;
+        }
+
+        return this._getNewSelectionStartFromOffset(
+          mouseOffset, prevWidth, width, charIndex + i, jlen);
+      }
+
+      if (mouseOffset.y < height) {
+        return this._getNewSelectionStartFromOffset(
+          mouseOffset, prevWidth, width, charIndex + i, jlen);
+      }
+    }
+
+    // clicked somewhere after all chars, so set at the end
+    if (typeof newSelectionStart === 'undefined') {
+      return this.text.length;
+    }
+  },
+
+  /**
+   * @private
+   */
+  _getNewSelectionStartFromOffset: function(mouseOffset, prevWidth, width, index, jlen) {
+
+    var distanceBtwLastCharAndCursor = mouseOffset.x - prevWidth,
+        distanceBtwNextCharAndCursor = width - mouseOffset.x,
+        offset = distanceBtwNextCharAndCursor > distanceBtwLastCharAndCursor ? 0 : 1,
+        newSelectionStart = index + offset;
+
+    // if object is horizontally flipped, mirror cursor location from the end
+    if (this.flipX) {
+      newSelectionStart = jlen - newSelectionStart;
+    }
+
+    if (newSelectionStart > this.text.length) {
+      newSelectionStart = this.text.length;
+    }
+
+    return newSelectionStart;
+  }
+});
+
+
+fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.prototype */ {
+
+  /**
+   * Initializes hidden textarea (needed to bring up keyboard in iOS)
+   */
+  initHiddenTextarea: function() {
+    this.hiddenTextarea = fabric.document.createElement('textarea');
+
+    this.hiddenTextarea.setAttribute('autocapitalize', 'off');
+    this.hiddenTextarea.style.cssText = 'position: fixed; bottom: 20px; left: 0px; opacity: 0;'
+                                        + ' width: 0px; height: 0px; z-index: -999;';
+    fabric.document.body.appendChild(this.hiddenTextarea);
+
+    fabric.util.addListener(this.hiddenTextarea, 'keydown', this.onKeyDown.bind(this));
+    fabric.util.addListener(this.hiddenTextarea, 'keypress', this.onKeyPress.bind(this));
+    fabric.util.addListener(this.hiddenTextarea, 'copy', this.copy.bind(this));
+    fabric.util.addListener(this.hiddenTextarea, 'paste', this.paste.bind(this));
+
+    if (!this._clickHandlerInitialized && this.canvas) {
+      fabric.util.addListener(this.canvas.upperCanvasEl, 'click', this.onClick.bind(this));
+      this._clickHandlerInitialized = true;
+    }
+  },
+
+  /**
+   * @private
+   */
+  _keysMap: {
+    8:  'removeChars',
+    9:  'exitEditing',
+    27: 'exitEditing',
+    13: 'insertNewline',
+    33: 'moveCursorUp',
+    34: 'moveCursorDown',
+    35: 'moveCursorRight',
+    36: 'moveCursorLeft',
+    37: 'moveCursorLeft',
+    38: 'moveCursorUp',
+    39: 'moveCursorRight',
+    40: 'moveCursorDown',
+    46: 'forwardDelete'
+  },
+
+  /**
+   * @private
+   */
+  _ctrlKeysMap: {
+    65: 'selectAll',
+    88: 'cut'
+  },
+
+  onClick: function() {
+    // No need to trigger click event here, focus is enough to have the keyboard appear on Android
+    this.hiddenTextarea && this.hiddenTextarea.focus();
+  },
+
+  /**
+   * Handles keyup event
+   * @param {Event} e Event object
+   */
+  onKeyDown: function(e) {
+    if (!this.isEditing) {
+      return;
+    }
+
+    if (e.keyCode in this._keysMap) {
+      this[this._keysMap[e.keyCode]](e);
+    }
+    else if ((e.keyCode in this._ctrlKeysMap) && (e.ctrlKey || e.metaKey)) {
+      this[this._ctrlKeysMap[e.keyCode]](e);
+    }
+    else {
+      return;
+    }
+
+    e.stopImmediatePropagation();
+    e.preventDefault();
+
+    this.canvas && this.canvas.renderAll();
+  },
+
+  /**
+   * Forward delete
+   */
+  forwardDelete: function(e) {
+    if (this.selectionStart === this.selectionEnd) {
+      this.moveCursorRight(e);
+    }
+    this.removeChars(e);
+  },
+
+  /**
+   * Copies selected text
+   * @param {Event} e Event object
+   */
+  copy: function(e) {
+    var selectedText = this.getSelectedText(),
+        clipboardData = this._getClipboardData(e);
+
+    // Check for backward compatibility with old browsers
+    if (clipboardData) {
+      clipboardData.setData('text', selectedText);
+    }
+
+    this.copiedText = selectedText;
+    this.copiedStyles = this.getSelectionStyles(
+                          this.selectionStart,
+                          this.selectionEnd);
+  },
+
+  /**
+   * Pastes text
+   * @param {Event} e Event object
+   */
+  paste: function(e) {
+    var copiedText = null,
+        clipboardData = this._getClipboardData(e);
+
+    // Check for backward compatibility with old browsers
+    if (clipboardData) {
+      copiedText = clipboardData.getData('text');
+    }
+    else {
+      copiedText = this.copiedText;
+    }
+
+    if (copiedText) {
+      this.insertChars(copiedText);
+    }
+  },
+
+  /**
+   * Cuts text
+   * @param {Event} e Event object
+   */
+  cut: function(e) {
+    if (this.selectionStart === this.selectionEnd) {
+      return;
+    }
+
+    this.copy();
+    this.removeChars(e);
+  },
+
+  /**
+   * @private
+   * @param {Event} e Event object
+   * @return {Object} Clipboard data object
+   */
+  _getClipboardData: function(e) {
+    return e && (e.clipboardData || fabric.window.clipboardData);
+  },
+
+  /**
+   * Handles keypress event
+   * @param {Event} e Event object
+   */
+  onKeyPress: function(e) {
+    if (!this.isEditing || e.metaKey || e.ctrlKey) {
+      return;
+    }
+    if (e.which !== 0) {
+      this.insertChars(String.fromCharCode(e.which));
+    }
+    e.stopPropagation();
+  },
+
+  /**
+   * Gets start offset of a selection
+   * @param {Event} e Event object
+   * @param {Boolean} isRight
+   * @return {Number}
+   */
+  getDownCursorOffset: function(e, isRight) {
+    var selectionProp = isRight ? this.selectionEnd : this.selectionStart,
+        textLines = this.text.split(this._reNewline),
+        _char,
+        lineLeftOffset,
+
+        textBeforeCursor = this.text.slice(0, selectionProp),
+        textAfterCursor = this.text.slice(selectionProp),
+
+        textOnSameLineBeforeCursor = textBeforeCursor.slice(textBeforeCursor.lastIndexOf('\n') + 1),
+        textOnSameLineAfterCursor = textAfterCursor.match(/(.*)\n?/)[1],
+        textOnNextLine = (textAfterCursor.match(/.*\n(.*)\n?/) || { })[1] || '',
+
+        cursorLocation = this.get2DCursorLocation(selectionProp);
+
+    // if on last line, down cursor goes to end of line
+    if (cursorLocation.lineIndex === textLines.length - 1 || e.metaKey || e.keyCode === 34) {
+
+      // move to the end of a text
+      return this.text.length - selectionProp;
+    }
+
+    var widthOfSameLineBeforeCursor = this._getWidthOfLine(this.ctx, cursorLocation.lineIndex, textLines);
+    lineLeftOffset = this._getLineLeftOffset(widthOfSameLineBeforeCursor);
+
+    var widthOfCharsOnSameLineBeforeCursor = lineLeftOffset,
+        lineIndex = cursorLocation.lineIndex;
+
+    for (var i = 0, len = textOnSameLineBeforeCursor.length; i < len; i++) {
+      _char = textOnSameLineBeforeCursor[i];
+      widthOfCharsOnSameLineBeforeCursor += this._getWidthOfChar(this.ctx, _char, lineIndex, i);
+    }
+
+    var indexOnNextLine = this._getIndexOnNextLine(
+      cursorLocation, textOnNextLine, widthOfCharsOnSameLineBeforeCursor, textLines);
+
+    return textOnSameLineAfterCursor.length + 1 + indexOnNextLine;
+  },
+
+  /**
+   * @private
+   */
+  _getIndexOnNextLine: function(cursorLocation, textOnNextLine, widthOfCharsOnSameLineBeforeCursor, textLines) {
+    var lineIndex = cursorLocation.lineIndex + 1,
+        widthOfNextLine = this._getWidthOfLine(this.ctx, lineIndex, textLines),
+        lineLeftOffset = this._getLineLeftOffset(widthOfNextLine),
+        widthOfCharsOnNextLine = lineLeftOffset,
+        indexOnNextLine = 0,
+        foundMatch;
+
+    for (var j = 0, jlen = textOnNextLine.length; j < jlen; j++) {
+
+      var _char = textOnNextLine[j],
+          widthOfChar = this._getWidthOfChar(this.ctx, _char, lineIndex, j);
+
+      widthOfCharsOnNextLine += widthOfChar;
+
+      if (widthOfCharsOnNextLine > widthOfCharsOnSameLineBeforeCursor) {
+
+        foundMatch = true;
+
+        var leftEdge = widthOfCharsOnNextLine - widthOfChar,
+            rightEdge = widthOfCharsOnNextLine,
+            offsetFromLeftEdge = Math.abs(leftEdge - widthOfCharsOnSameLineBeforeCursor),
+            offsetFromRightEdge = Math.abs(rightEdge - widthOfCharsOnSameLineBeforeCursor);
+
+        indexOnNextLine = offsetFromRightEdge < offsetFromLeftEdge ? j + 1 : j;
+
+        break;
+      }
+    }
+
+    // reached end
+    if (!foundMatch) {
+      indexOnNextLine = textOnNextLine.length;
+    }
+
+    return indexOnNextLine;
+  },
+
+  /**
+   * Moves cursor down
+   * @param {Event} e Event object
+   */
+  moveCursorDown: function(e) {
+    this.abortCursorAnimation();
+    this._currentCursorOpacity = 1;
+
+    var offset = this.getDownCursorOffset(e, this._selectionDirection === 'right');
+
+    if (e.shiftKey) {
+      this.moveCursorDownWithShift(offset);
+    }
+    else {
+      this.moveCursorDownWithoutShift(offset);
+    }
+
+    this.initDelayedCursor();
+  },
+
+  /**
+   * Moves cursor down without keeping selection
+   * @param {Number} offset
+   */
+  moveCursorDownWithoutShift: function(offset) {
+    this._selectionDirection = 'right';
+    this.selectionStart += offset;
+
+    if (this.selectionStart > this.text.length) {
+      this.selectionStart = this.text.length;
+    }
+    this.selectionEnd = this.selectionStart;
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * private
+   */
+  swapSelectionPoints: function() {
+    var swapSel = this.selectionEnd;
+    this.selectionEnd = this.selectionStart;
+    this.selectionStart = swapSel;
+  },
+
+  /**
+   * Moves cursor down while keeping selection
+   * @param {Number} offset
+   */
+  moveCursorDownWithShift: function(offset) {
+    if (this.selectionEnd === this.selectionStart) {
+      this._selectionDirection = 'right';
+    }
+    var prop = this._selectionDirection === 'right' ? 'selectionEnd' : 'selectionStart';
+    this[prop] += offset;
+    if (this.selectionEnd < this.selectionStart  && this._selectionDirection === 'left') {
+      this.swapSelectionPoints();
+      this._selectionDirection = 'right';
+    }
+    if (this.selectionEnd > this.text.length) {
+      this.selectionEnd = this.text.length;
+    }
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * @param {Event} e Event object
+   * @param {Boolean} isRight
+   * @return {Number}
+   */
+  getUpCursorOffset: function(e, isRight) {
+    var selectionProp = isRight ? this.selectionEnd : this.selectionStart,
+        cursorLocation = this.get2DCursorLocation(selectionProp);
+    // if on first line, up cursor goes to start of line
+    if (cursorLocation.lineIndex === 0 || e.metaKey || e.keyCode === 33) {
+      return selectionProp;
+    }
+
+    var textBeforeCursor = this.text.slice(0, selectionProp),
+        textOnSameLineBeforeCursor = textBeforeCursor.slice(textBeforeCursor.lastIndexOf('\n') + 1),
+        textOnPreviousLine = (textBeforeCursor.match(/\n?(.*)\n.*$/) || {})[1] || '',
+        textLines = this.text.split(this._reNewline),
+        _char,
+        widthOfSameLineBeforeCursor = this._getWidthOfLine(this.ctx, cursorLocation.lineIndex, textLines),
+        lineLeftOffset = this._getLineLeftOffset(widthOfSameLineBeforeCursor),
+        widthOfCharsOnSameLineBeforeCursor = lineLeftOffset,
+        lineIndex = cursorLocation.lineIndex;
+
+    for (var i = 0, len = textOnSameLineBeforeCursor.length; i < len; i++) {
+      _char = textOnSameLineBeforeCursor[i];
+      widthOfCharsOnSameLineBeforeCursor += this._getWidthOfChar(this.ctx, _char, lineIndex, i);
+    }
+
+    var indexOnPrevLine = this._getIndexOnPrevLine(
+      cursorLocation, textOnPreviousLine, widthOfCharsOnSameLineBeforeCursor, textLines);
+
+    return textOnPreviousLine.length - indexOnPrevLine + textOnSameLineBeforeCursor.length;
+  },
+
+  /**
+   * @private
+   */
+  _getIndexOnPrevLine: function(cursorLocation, textOnPreviousLine, widthOfCharsOnSameLineBeforeCursor, textLines) {
+
+    var lineIndex = cursorLocation.lineIndex - 1,
+        widthOfPreviousLine = this._getWidthOfLine(this.ctx, lineIndex, textLines),
+        lineLeftOffset = this._getLineLeftOffset(widthOfPreviousLine),
+        widthOfCharsOnPreviousLine = lineLeftOffset,
+        indexOnPrevLine = 0,
+        foundMatch;
+
+    for (var j = 0, jlen = textOnPreviousLine.length; j < jlen; j++) {
+
+      var _char = textOnPreviousLine[j],
+          widthOfChar = this._getWidthOfChar(this.ctx, _char, lineIndex, j);
+
+      widthOfCharsOnPreviousLine += widthOfChar;
+
+      if (widthOfCharsOnPreviousLine > widthOfCharsOnSameLineBeforeCursor) {
+
+        foundMatch = true;
+
+        var leftEdge = widthOfCharsOnPreviousLine - widthOfChar,
+            rightEdge = widthOfCharsOnPreviousLine,
+            offsetFromLeftEdge = Math.abs(leftEdge - widthOfCharsOnSameLineBeforeCursor),
+            offsetFromRightEdge = Math.abs(rightEdge - widthOfCharsOnSameLineBeforeCursor);
+
+        indexOnPrevLine = offsetFromRightEdge < offsetFromLeftEdge ? j : (j - 1);
+
+        break;
+      }
+    }
+
+    // reached end
+    if (!foundMatch) {
+      indexOnPrevLine = textOnPreviousLine.length - 1;
+    }
+
+    return indexOnPrevLine;
+  },
+
+  /**
+   * Moves cursor up
+   * @param {Event} e Event object
+   */
+  moveCursorUp: function(e) {
+
+    this.abortCursorAnimation();
+    this._currentCursorOpacity = 1;
+
+    var offset = this.getUpCursorOffset(e, this._selectionDirection === 'right');
+    if (e.shiftKey) {
+      this.moveCursorUpWithShift(offset);
+    }
+    else {
+      this.moveCursorUpWithoutShift(offset);
+    }
+
+    this.initDelayedCursor();
+  },
+
+  /**
+   * Moves cursor up with shift
+   * @param {Number} offset
+   */
+  moveCursorUpWithShift: function(offset) {
+    if (this.selectionEnd === this.selectionStart) {
+      this._selectionDirection = 'left';
+    }
+    var prop = this._selectionDirection === 'right' ? 'selectionEnd' : 'selectionStart';
+    this[prop] -= offset;
+    if (this.selectionEnd < this.selectionStart && this._selectionDirection === 'right') {
+      this.swapSelectionPoints();
+      this._selectionDirection = 'left';
+    }
+    if (this.selectionStart < 0) {
+      this.selectionStart = 0;
+    }
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Moves cursor up without shift
+   * @param {Number} offset
+   */
+  moveCursorUpWithoutShift: function(offset) {
+    if (this.selectionStart === this.selectionEnd) {
+      this.selectionStart -= offset;
+    }
+    if (this.selectionStart < 0) {
+      this.selectionStart = 0;
+    }
+    this.selectionEnd = this.selectionStart;
+
+    this._selectionDirection = 'left';
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Moves cursor left
+   * @param {Event} e Event object
+   */
+  moveCursorLeft: function(e) {
+    if (this.selectionStart === 0 && this.selectionEnd === 0) {
+      return;
+    }
+
+    this.abortCursorAnimation();
+    this._currentCursorOpacity = 1;
+
+    if (e.shiftKey) {
+      this.moveCursorLeftWithShift(e);
+    }
+    else {
+      this.moveCursorLeftWithoutShift(e);
+    }
+
+    this.initDelayedCursor();
+  },
+
+  /**
+   * @private
+   */
+  _move: function(e, prop, direction) {
+    if (e.altKey) {
+      this[prop] = this['findWordBoundary' + direction](this[prop]);
+    }
+    else if (e.metaKey || e.keyCode === 35 ||  e.keyCode === 36 ) {
+      this[prop] = this['findLineBoundary' + direction](this[prop]);
+    }
+    else {
+      this[prop] += (direction === 'Left' ? -1 : 1);
+    }
+  },
+
+  /**
+   * @private
+   */
+  _moveLeft: function(e, prop) {
+    this._move(e, prop, 'Left');
+  },
+
+  /**
+   * @private
+   */
+  _moveRight: function(e, prop) {
+    this._move(e, prop, 'Right');
+  },
+
+  /**
+   * Moves cursor left without keeping selection
+   * @param {Event} e
+   */
+  moveCursorLeftWithoutShift: function(e) {
+    this._selectionDirection = 'left';
+
+    // only move cursor when there is no selection,
+    // otherwise we discard it, and leave cursor on same place
+    if (this.selectionEnd === this.selectionStart) {
+      this._moveLeft(e, 'selectionStart');
+    }
+    this.selectionEnd = this.selectionStart;
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Moves cursor left while keeping selection
+   * @param {Event} e
+   */
+  moveCursorLeftWithShift: function(e) {
+    if (this._selectionDirection === 'right' && this.selectionStart !== this.selectionEnd) {
+      this._moveLeft(e, 'selectionEnd');
+    }
+    else {
+      this._selectionDirection = 'left';
+      this._moveLeft(e, 'selectionStart');
+
+      // increase selection by one if it's a newline
+      if (this.text.charAt(this.selectionStart) === '\n') {
+        this.selectionStart--;
+      }
+      if (this.selectionStart < 0) {
+        this.selectionStart = 0;
+      }
+    }
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Moves cursor right
+   * @param {Event} e Event object
+   */
+  moveCursorRight: function(e) {
+    if (this.selectionStart >= this.text.length && this.selectionEnd >= this.text.length) {
+      return;
+    }
+
+    this.abortCursorAnimation();
+    this._currentCursorOpacity = 1;
+
+    if (e.shiftKey) {
+      this.moveCursorRightWithShift(e);
+    }
+    else {
+      this.moveCursorRightWithoutShift(e);
+    }
+
+    this.initDelayedCursor();
+  },
+
+  /**
+   * Moves cursor right while keeping selection
+   * @param {Event} e
+   */
+  moveCursorRightWithShift: function(e) {
+    if (this._selectionDirection === 'left' && this.selectionStart !== this.selectionEnd) {
+      this._moveRight(e, 'selectionStart');
+    }
+    else {
+      this._selectionDirection = 'right';
+      this._moveRight(e, 'selectionEnd');
+
+      // increase selection by one if it's a newline
+      if (this.text.charAt(this.selectionEnd - 1) === '\n') {
+        this.selectionEnd++;
+      }
+      if (this.selectionEnd > this.text.length) {
+        this.selectionEnd = this.text.length;
+      }
+    }
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Moves cursor right without keeping selection
+   * @param {Event} e Event object
+   */
+  moveCursorRightWithoutShift: function(e) {
+    this._selectionDirection = 'right';
+
+    if (this.selectionStart === this.selectionEnd) {
+      this._moveRight(e, 'selectionStart');
+      this.selectionEnd = this.selectionStart;
+    }
+    else {
+      this.selectionEnd += this.getNumNewLinesInSelectedText();
+      if (this.selectionEnd > this.text.length) {
+        this.selectionEnd = this.text.length;
+      }
+      this.selectionStart = this.selectionEnd;
+    }
+
+    this.fire('selection:changed');
+    this.canvas && this.canvas.fire('text:selection:changed', { target: this });
+  },
+
+  /**
+   * Inserts a character where cursor is (replacing selection if one exists)
+   * @param {Event} e Event object
+   */
+  removeChars: function(e) {
+    if (this.selectionStart === this.selectionEnd) {
+      this._removeCharsNearCursor(e);
+    }
+    else {
+      this._removeCharsFromTo(this.selectionStart, this.selectionEnd);
+    }
+
+    this.selectionEnd = this.selectionStart;
+
+    this._removeExtraneousStyles();
+
+    if (this.canvas) {
+      // TODO: double renderAll gets rid of text box shift happenning sometimes
+      // need to find out what exactly causes it and fix it
+      this.canvas.renderAll().renderAll();
+    }
+
+    this.setCoords();
+    this.fire('changed');
+    this.canvas && this.canvas.fire('text:changed', { target: this });
+  },
+
+  /**
+   * @private
+   * @param {Event} e Event object
+   */
+  _removeCharsNearCursor: function(e) {
+    if (this.selectionStart !== 0) {
+
+      if (e.metaKey) {
+        // remove all till the start of current line
+        var leftLineBoundary = this.findLineBoundaryLeft(this.selectionStart);
+
+        this._removeCharsFromTo(leftLineBoundary, this.selectionStart);
+        this.selectionStart = leftLineBoundary;
+      }
+      else if (e.altKey) {
+        // remove all till the start of current word
+        var leftWordBoundary = this.findWordBoundaryLeft(this.selectionStart);
+
+        this._removeCharsFromTo(leftWordBoundary, this.selectionStart);
+        this.selectionStart = leftWordBoundary;
+      }
+      else {
+        var isBeginningOfLine = this.text.slice(this.selectionStart - 1, this.selectionStart) === '\n';
+        this.removeStyleObject(isBeginningOfLine);
+
+        this.selectionStart--;
+        this.text = this.text.slice(0, this.selectionStart) +
+                    this.text.slice(this.selectionStart + 1);
+      }
+    }
+  }
+});
+
+
+/* _TO_SVG_START_ */
+fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.prototype */ {
+
+  /**
+   * @private
+   */
+  _setSVGTextLineText: function(textLine, lineIndex, textSpans, lineHeight, lineTopOffsetMultiplier, textBgRects) {
+    if (!this.styles[lineIndex]) {
+      this.callSuper('_setSVGTextLineText',
+        textLine, lineIndex, textSpans, lineHeight, lineTopOffsetMultiplier);
+    }
+    else {
+      this._setSVGTextLineChars(
+        textLine, lineIndex, textSpans, lineHeight, lineTopOffsetMultiplier, textBgRects);
+    }
+  },
+
+  /**
+   * @private
+   */
+  _setSVGTextLineChars: function(textLine, lineIndex, textSpans, lineHeight, lineTopOffsetMultiplier, textBgRects) {
+
+    var yProp = lineIndex === 0 || this.useNative ? 'y' : 'dy',
+        chars = textLine.split(''),
+        charOffset = 0,
+        lineLeftOffset = this._getSVGLineLeftOffset(lineIndex),
+        lineTopOffset = this._getSVGLineTopOffset(lineIndex),
+        heightOfLine = this._getHeightOfLine(this.ctx, lineIndex);
+
+    for (var i = 0, len = chars.length; i < len; i++) {
+      var styleDecl = this.styles[lineIndex][i] || { };
+
+      textSpans.push(
+        this._createTextCharSpan(
+          chars[i], styleDecl, lineLeftOffset, lineTopOffset, yProp, charOffset));
+
+      var charWidth = this._getWidthOfChar(this.ctx, chars[i], lineIndex, i);
+
+      if (styleDecl.textBackgroundColor) {
+        textBgRects.push(
+          this._createTextCharBg(
+            styleDecl, lineLeftOffset, lineTopOffset, heightOfLine, charWidth, charOffset));
+      }
+
+      charOffset += charWidth;
+    }
+  },
+
+  /**
+   * @private
+   */
+  _getSVGLineLeftOffset: function(lineIndex) {
+    return (this._boundaries && this._boundaries[lineIndex])
+      ? fabric.util.toFixed(this._boundaries[lineIndex].left, 2)
+      : 0;
+  },
+
+  /**
+   * @private
+   */
+  _getSVGLineTopOffset: function(lineIndex) {
+    var lineTopOffset = 0;
+    for (var j = 0; j <= lineIndex; j++) {
+      lineTopOffset += this._getHeightOfLine(this.ctx, j);
+    }
+    return lineTopOffset - this.height / 2;
+  },
+
+  /**
+   * @private
+   */
+  _createTextCharBg: function(styleDecl, lineLeftOffset, lineTopOffset, heightOfLine, charWidth, charOffset) {
+    return [
+      //jscs:disable validateIndentation
+      '<rect fill="', styleDecl.textBackgroundColor,
+      '" transform="translate(',
+        -this.width / 2, ' ',
+        -this.height + heightOfLine, ')',
+      '" x="', lineLeftOffset + charOffset,
+      '" y="', lineTopOffset + heightOfLine,
+      '" width="', charWidth,
+      '" height="', heightOfLine,
+      '"></rect>'
+      //jscs:enable validateIndentation
+    ].join('');
+  },
+
+  /**
+   * @private
+   */
+  _createTextCharSpan: function(_char, styleDecl, lineLeftOffset, lineTopOffset, yProp, charOffset) {
+
+    var fillStyles = this.getSvgStyles.call(fabric.util.object.extend({
+      visible: true,
+      fill: this.fill,
+      stroke: this.stroke,
+      type: 'text'
+    }, styleDecl));
+
+    return [
+      //jscs:disable validateIndentation
+      '<tspan x="', lineLeftOffset + charOffset, '" ',
+        yProp, '="', lineTopOffset, '" ',
+
+        (styleDecl.fontFamily ? 'font-family="' + styleDecl.fontFamily.replace(/"/g, '\'') + '" ': ''),
+        (styleDecl.fontSize ? 'font-size="' + styleDecl.fontSize + '" ': ''),
+        (styleDecl.fontStyle ? 'font-style="' + styleDecl.fontStyle + '" ': ''),
+        (styleDecl.fontWeight ? 'font-weight="' + styleDecl.fontWeight + '" ': ''),
+        (styleDecl.textDecoration ? 'text-decoration="' + styleDecl.textDecoration + '" ': ''),
+        'style="', fillStyles, '">',
+
+        fabric.util.string.escapeXml(_char),
+      '</tspan>'
+      //jscs:enable validateIndentation
+    ].join('');
+  }
+});
+/* _TO_SVG_END_ */
 
